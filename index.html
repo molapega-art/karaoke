@@ -1291,8 +1291,11 @@ async function doSearch(role) {
   try {
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${YT_KEY}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error();
     const data = await res.json();
+    if (!res.ok) {
+      const errMsg = data?.error?.message || res.status;
+      throw new Error(String(errMsg));
+    }
     const items = data.items || [];
     if (!items.length) {
       area.innerHTML = `<div class="loading-state">Ничего не найдено. Попробуйте другой запрос.</div>`;
@@ -1305,10 +1308,10 @@ async function doSearch(role) {
       thumb:   v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url || '',
     }))
     renderSearchResults(role);
-  } catch {
+  } catch(err) {
     area.innerHTML = `<div class="loading-state">
       Не удалось выполнить поиск.<br>
-      <small style="font-size:11px;color:#555;margin-top:8px;display:block">Проверьте интернет.</small>
+      <small style="font-size:11px;color:#ff6b6b;margin-top:8px;display:block">${err.message || 'Проверьте интернет'}</small>
     </div>`;
     const ml = document.createElement('button');
     ml.className = 'manual-link';
