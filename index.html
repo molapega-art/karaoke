@@ -565,7 +565,27 @@
   <p>Неверный код доступа.</p>
 </div>
 
-<script>
+<script type="module">
+// ═══════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, onValue, set, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDgyWPGrTnGytmRS737nrfohj3S7ZsowJ4",
+  authDomain: "karaoke-fix.firebaseapp.com",
+  databaseURL: "https://karaoke-fix-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "karaoke-fix",
+  storageBucket: "karaoke-fix.firebasestorage.app",
+  messagingSenderId: "475192476781",
+  appId: "1:475192476781:web:7f486dd377eb2ebbc62b64"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+const dbRef = ref(db, 'karaoke');
+
 // ═══════════════════════════════════════════
 // КОНФИГ — смените пароли перед деплоем
 // ═══════════════════════════════════════════
@@ -793,7 +813,7 @@ function adminPlayNext(i) {
 function adminSkip() {
   saveState();
   // Сигнал бару через localStorage
-  localStorage.setItem('karaoke_cmd', 'skip:' + Date.now());
+  APP.lastCmd = 'skip:' + Date.now(); saveState();
   // Если открыт бар в этой вкладке — вызвать напрямую
   if (typeof skipTrack === 'function' &&
       document.getElementById('bar-screen').classList.contains('active')) skipTrack();
@@ -805,7 +825,7 @@ function adminClearAll() {
   APP.queue = [];
   APP.currentIdx = -1;
   saveState();
-  localStorage.setItem('karaoke_cmd', 'clear:' + Date.now());
+  APP.lastCmd = 'clear:' + Date.now(); saveState();
   renderAdminQueue();
 }
 
@@ -1055,49 +1075,67 @@ function generateQR() {
 // ═══════════════════════════════════════════
 function saveState() {
   try {
-    localStorage.setItem('karaoke_q',   JSON.stringify(APP.queue));
-    localStorage.setItem('karaoke_idx', String(APP.currentIdx));
+    set(dbRef, {
+      queue: APP.queue,
+      currentIdx: APP.currentIdx,
+      cmd: APP.lastCmd || '',
+    });
   } catch(e) {}
 }
 
 function loadState() {
-  try {
-    const q   = localStorage.getItem('karaoke_q');
-    const idx = localStorage.getItem('karaoke_idx');
-    if (q) {
-      APP.queue = JSON.parse(q).map(item => ({
-        ...item,
-        guestId: item.guestId || 'unknown',
-      }));
-    }
-    if (idx !== null) APP.currentIdx = parseInt(idx);
-  } catch(e) {}
+  // State is loaded via Firebase onValue listener — this is a no-op stub
 }
 
-window.addEventListener('storage', (e) => {
-  // Очередь изменилась (кто-то добавил или админ отредактировал)
-  if (e.key === 'karaoke_q' || e.key === 'karaoke_idx') {
-    loadState();
-    if (document.getElementById('client-screen').classList.contains('active')) renderClientQueue();
-    if (document.getElementById('admin-screen').classList.contains('active'))  renderAdminQueue();
-    if (document.getElementById('bar-screen').classList.contains('active')) {
-      updateBarUI();
-      // Новая песня появилась пока бар ждал
-      if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady) {
-        hideQR(); playNext();
-      }
+// Firebase realtime listener — синхронизация между всеми устройствами
+let lastCmdSeen = '';
+
+onValue(dbRef, (snapshot) => {
+  const data = snapshot.val();
+  if (!data) return;
+
+  const prevIdx = APP.currentIdx;
+  const prevLen = APP.queue.length;
+
+  APP.queue = (data.queue || []).map(item => ({
+    ...item,
+    guestId: item.guestId || 'unknown',
+  }));
+  APP.currentIdx = data.currentIdx ?? -1;
+
+  // Обновляем UI в зависимости от роли
+  if (document.getElementById('client-screen').classList.contains('active')) {
+    renderClientQueue();
+  }
+  if (document.getElementById('admin-screen').classList.contains('active')) {
+    renderAdminQueue();
+  }
+  if (document.getElementById('bar-screen').classList.contains('active')) {
+    updateBarUI();
+
+    // Новая песня появилась пока бар ждал на QR
+    if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady) {
+      hideQR(); playNext();
+    }
+
+    // Если currentIdx изменился извне (админ поменял) — перезагружаем трек
+    if (APP.currentIdx !== prevIdx && APP.currentIdx >= 0 && APP.playerReady) {
+      stopCountdown(); hideOverlay(); hideQR();
+      ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     }
   }
 
-  // Команды от админа (skip / clear)
-  if (e.key === 'karaoke_cmd' && document.getElementById('bar-screen').classList.contains('active')) {
-    const cmd = (e.newValue || '').split(':')[0];
-    if (cmd === 'skip')  { loadState(); skipTrack(); }
-    if (cmd === 'clear') {
-      loadState();
-      stopCountdown(); hideOverlay();
-      if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
-      showQR(); updateBarUI();
+  // Команды от админа
+  const cmd = (data.cmd || '').split(':')[0];
+  if (cmd && cmd !== lastCmdSeen) {
+    lastCmdSeen = data.cmd;
+    if (document.getElementById('bar-screen').classList.contains('active')) {
+      if (cmd === 'skip')  skipTrack();
+      if (cmd === 'clear') {
+        stopCountdown(); hideOverlay();
+        if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
+        showQR(); updateBarUI();
+      }
     }
   }
 });
