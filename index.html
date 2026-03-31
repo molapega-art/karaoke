@@ -1143,6 +1143,10 @@ function renderAdminQueue() {
       ondragend="onDragEnd()"
     >
       <span class="drag-handle" title="Перетащить">⠿</span>
+      <span style="display:flex;flex-direction:column;gap:1px;">
+        <button onclick="adminMoveUp(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:1px 4px;line-height:1;" title="Выше">▲</button>
+        <button onclick="adminMoveDown(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:1px 4px;line-height:1;" title="Ниже">▼</button>
+      </span>
       ${isNow ? `<div class="pulse-dot"></div>` : `<span class="queue-num">${i + 1}</span>`}
       <img class="queue-thumb" src="${item.thumb}" onerror="this.style.display='none'">
       <div class="queue-info">
@@ -1196,6 +1200,26 @@ function onDragEnd() {
   dragSrcIdx = null;
 }
 
+function adminMoveUp(i) {
+  if (i <= 0) return;
+  const tmp = APP.queue[i];
+  APP.queue[i] = APP.queue[i - 1];
+  APP.queue[i - 1] = tmp;
+  if (APP.currentIdx === i) APP.currentIdx = i - 1;
+  else if (APP.currentIdx === i - 1) APP.currentIdx = i;
+  saveState(); renderAdminQueue();
+}
+
+function adminMoveDown(i) {
+  if (i >= APP.queue.length - 1) return;
+  const tmp = APP.queue[i];
+  APP.queue[i] = APP.queue[i + 1];
+  APP.queue[i + 1] = tmp;
+  if (APP.currentIdx === i) APP.currentIdx = i + 1;
+  else if (APP.currentIdx === i + 1) APP.currentIdx = i;
+  saveState(); renderAdminQueue();
+}
+
 // Удалить трек
 function adminDelete(i) {
   if (!confirm(`Удалить «${APP.queue[i]?.title}» из очереди?`)) return;
@@ -1222,12 +1246,8 @@ function adminPlayNext(i) {
 
 // Глобальный пропуск из админки
 function adminSkip() {
+  APP.lastCmd = 'skip:' + Date.now();
   saveState();
-  // Сигнал бару через localStorage
-  APP.lastCmd = 'skip:' + Date.now(); saveState();
-  // Если открыт бар в этой вкладке — вызвать напрямую
-  if (typeof skipTrack === 'function' &&
-      document.getElementById('bar-screen').classList.contains('active')) skipTrack();
   renderAdminQueue();
 }
 
