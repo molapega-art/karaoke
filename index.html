@@ -463,23 +463,96 @@
 <!-- ═══════════════════════════════════════
      СТАРТОВЫЙ ЭКРАН — ВВОД ИМЕНИ
 ════════════════════════════════════════ -->
-<div id="name-screen" style="display:none">
-  <div class="name-logo">FIX BAR</div>
-  <div class="name-sub">Karaoke Night</div>
-  <div class="name-tagline">
-    Готовьтесь к <span>запойной ночи!</span><br>
+<div id="name-screen" style="
+  display:none;
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  z-index:100;
+  background:#08060f;
+  background-image:radial-gradient(ellipse at 50% 35%, rgba(214,58,255,0.18) 0%, transparent 60%);
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:36px;
+  padding:40px 28px;
+  text-align:center;
+  overflow-y:auto;
+  box-sizing:border-box;
+  min-height:100%;
+">
+  <div style="
+    font-family:'Unbounded',sans-serif;
+    font-size:clamp(40px,14vw,80px);
+    font-weight:900;
+    background:linear-gradient(135deg,#d63aff,#ff3a8c);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    line-height:1.0;
+    letter-spacing:-2px;
+  ">FIX BAR</div>
+
+  <div style="
+    font-family:'Unbounded',sans-serif;
+    font-size:11px;
+    letter-spacing:6px;
+    color:#7a6e8a;
+    text-transform:uppercase;
+    margin-top:-20px;
+  ">Karaoke Night</div>
+
+  <div style="
+    font-size:clamp(17px,4vw,22px);
+    color:#f0eaf8;
+    line-height:1.7;
+    max-width:320px;
+    font-family:'Onest',sans-serif;
+  ">
+    Готовьтесь к<br>
+    <span style="
+      background:linear-gradient(135deg,#3affee,#d63aff);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      font-weight:600;
+    ">запойной ночи!</span><br>
     Как тебя зовут, звезда?
   </div>
-  <div class="name-input-wrap">
+
+  <div style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:300px;">
     <input
-      class="name-input" id="guest-name-input"
+      id="guest-name-input"
       type="text" maxlength="30"
       placeholder="Твоё имя..."
       onkeydown="if(event.key==='Enter') submitGuestName()"
+      style="
+        background:#1a1430;
+        border:2px solid rgba(214,58,255,0.2);
+        border-radius:16px;
+        padding:18px 20px;
+        color:#f0eaf8;
+        font-family:'Onest',sans-serif;
+        font-size:18px;
+        text-align:center;
+        outline:none;
+        width:100%;
+        box-sizing:border-box;
+      "
     >
-    <button class="btn-primary" style="width:100%;padding:18px;font-size:15px;border-radius:16px" onclick="submitGuestName()">
-      Вперёд! →
-    </button>
+    <button
+      onclick="submitGuestName()"
+      style="
+        background:linear-gradient(135deg,#d63aff,#ff3a8c);
+        border:none;
+        border-radius:16px;
+        padding:18px;
+        color:white;
+        font-family:'Unbounded',sans-serif;
+        font-size:15px;
+        font-weight:700;
+        cursor:pointer;
+        width:100%;
+      "
+    >Вперёд! →</button>
   </div>
 </div>
 
@@ -530,6 +603,31 @@
   </div>
 </div>
 
+<!-- Стартовый экран — нужен для разблокировки автоплея в браузере -->
+  <div id="start-overlay" style="
+    position:fixed;inset:0;background:#000;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:32px;z-index:100;
+    background:radial-gradient(ellipse at center, rgba(214,58,255,0.15) 0%, #000 70%);
+  ">
+    <div style="font-family:'Unbounded',sans-serif;font-size:clamp(28px,6vw,64px);font-weight:900;
+      background:linear-gradient(135deg,#d63aff,#ff3a8c);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      text-align:center;line-height:1.2;">
+      KARAOKE<br><span style="font-size:0.4em;letter-spacing:4px;opacity:0.7">FIX BAR</span>
+    </div>
+    <button id="start-btn" onclick="startBar()" style="
+      background:linear-gradient(135deg,#d63aff,#ff3a8c);
+      border:none;border-radius:16px;padding:20px 48px;
+      color:white;font-family:'Unbounded',sans-serif;
+      font-size:18px;font-weight:700;cursor:pointer;
+      box-shadow:0 0 40px rgba(214,58,255,0.5);
+      transition:all 0.2s;
+    ">▶ Запустить</button>
+    <div style="font-size:13px;color:#7a6e8a;letter-spacing:2px;">Нажмите для начала сеанса</div>
+  </div>
+
 <!-- ═══════════════════════════════════════
      БАРНЫЙ ЭКРАН
 ════════════════════════════════════════ -->
@@ -555,30 +653,6 @@
     </div>
   </div>
 
-  <!-- Стартовый экран — нужен для разблокировки автоплея в браузере -->
-  <div id="start-overlay" style="
-    position:fixed;inset:0;background:#000;
-    display:flex;flex-direction:column;
-    align-items:center;justify-content:center;
-    gap:32px;z-index:100;
-    background:radial-gradient(ellipse at center, rgba(214,58,255,0.15) 0%, #000 70%);
-  ">
-    <div style="font-family:'Unbounded',sans-serif;font-size:clamp(28px,6vw,64px);font-weight:900;
-      background:linear-gradient(135deg,#d63aff,#ff3a8c);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-      text-align:center;line-height:1.2;">
-      KARAOKE<br><span style="font-size:0.4em;letter-spacing:4px;opacity:0.7">FIX BAR</span>
-    </div>
-    <button id="start-btn" onclick="startBar()" style="
-      background:linear-gradient(135deg,#d63aff,#ff3a8c);
-      border:none;border-radius:16px;padding:20px 48px;
-      color:white;font-family:'Unbounded',sans-serif;
-      font-size:18px;font-weight:700;cursor:pointer;
-      box-shadow:0 0 40px rgba(214,58,255,0.5);
-      transition:all 0.2s;
-    ">▶ Запустить</button>
-    <div style="font-size:13px;color:#7a6e8a;letter-spacing:2px;">Нажмите для начала сеанса</div>
-  </div>
 
   <div id="bar-controls">
     <div class="bar-logo">KARAOKE</div>
