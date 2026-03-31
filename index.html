@@ -590,13 +590,12 @@
   <p>Неверный код доступа.</p>
 </div>
 
-<script type="module">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
 // ═══════════════════════════════════════════
-// FIREBASE
+// FIREBASE (compat SDK — без import/export)
 // ═══════════════════════════════════════════
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, onValue, set, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-
 const firebaseConfig = {
   apiKey: "AIzaSyDgyWPGrTnGytmRS737nrfohj3S7ZsowJ4",
   authDomain: "karaoke-fix.firebaseapp.com",
@@ -607,9 +606,9 @@ const firebaseConfig = {
   appId: "1:475192476781:web:7f486dd377eb2ebbc62b64"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getDatabase(firebaseApp);
-const dbRef = ref(db, 'karaoke');
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const dbRef = db.ref('karaoke');
 
 // ═══════════════════════════════════════════
 // КОНФИГ — смените пароли перед деплоем
@@ -1151,8 +1150,8 @@ function generateQR() {
 // ═══════════════════════════════════════════
 function saveState() {
   try {
-    set(dbRef, {
-      queue: APP.queue,
+    dbRef.set({
+      queue: APP.queue.length ? APP.queue : null,
       currentIdx: APP.currentIdx,
       cmd: APP.lastCmd || '',
     });
@@ -1166,7 +1165,7 @@ function loadState() {
 // Firebase realtime listener — синхронизация между всеми устройствами
 let lastCmdSeen = '';
 
-onValue(dbRef, (snapshot) => {
+dbRef.on('value', (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
 
@@ -1231,27 +1230,7 @@ function truncate(s, n) {
 }
 
 // ═══════════════════════════════════════════
-// Expose functions to global scope (required for type="module")
-// ═══════════════════════════════════════════
-window.doSearch        = doSearch;
-window.selectResult    = selectResult;
-window.addToQueue      = addToQueue;
-window.showManualInput = showManualInput;
-window.addManualUrl    = addManualUrl;
-window.guestDelete     = guestDelete;
-window.adminDelete     = adminDelete;
-window.adminPlayNext   = adminPlayNext;
-window.adminSkip       = adminSkip;
-window.adminClearAll   = adminClearAll;
-window.skipTrack       = skipTrack;
-window.clearQueue      = clearQueue;
-window.requestFullscreen = requestFullscreen;
-window.onDragStart     = onDragStart;
-window.onDragOver      = onDragOver;
-window.onDragLeave     = onDragLeave;
-window.onDrop          = onDrop;
-window.onDragEnd       = onDragEnd;
-window.onYouTubeIframeAPIReady = () => { if (typeof onYTReady === 'function') onYTReady(); };
+
 
 boot();
 
