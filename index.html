@@ -999,6 +999,7 @@ function initBar() {
 }
 
 window.startBar = function startBar() {
+  alert('startBar вызван!');
   document.getElementById('start-overlay').style.display = 'none';
   APP.barStarted = true;
   loadYTAPI();
