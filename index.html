@@ -483,6 +483,7 @@
       <div class="overlay-label">Следующая песня</div>
       <img class="overlay-thumb" id="overlay-thumb" src="" alt="">
       <div class="overlay-title" id="overlay-title">—</div>
+      <div id="overlay-guest" style="font-size:clamp(14px,2vw,22px);color:var(--neon3);letter-spacing:2px;margin-top:-8px;"></div>
       <div class="overlay-countdown" id="overlay-countdown">10</div>
     </div>
 
@@ -1038,7 +1039,7 @@ function onYTReady() {
         if (e.data === 101 || e.data === 150) {
           // Видео нельзя встроить — показываем кнопку открыть на YouTube
           const track = APP.queue[APP.currentIdx];
-          if (track) showEmbedBlockedScreen(track.id, track.title);
+          if (track) showEmbedBlockedScreen(track.id, track.title, track.guestId, track.guestName);
         } else if (e.data === 100) {
           // Видео не найдено — пропускаем
           setTimeout(() => playNext(), 1500);
@@ -1069,17 +1070,17 @@ function startPlaybackTimeout() {
     APP.embedCheckTimer = null;
     if (!ytPlayer || ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3) return;
     const track = APP.queue[APP.currentIdx];
-    if (track) showEmbedBlockedScreen(track.id, track.title);
+    if (track) showEmbedBlockedScreen(track.id, track.title, track.guestId, track.guestName);
   }, 8000);
 }
 
-function showEmbedBlockedScreen(videoId, title) {
-  const url = 'https://www.youtube.com/watch?v=' + videoId;
+function showEmbedBlockedScreen(videoId, title, guestId, guestName) {
+  const url = 'https://www.youtube.com/watch?v=' + videoId + '&autoplay=1';
   setOverlay('none');
-  // Показываем поверх плеера экран с кнопкой
   const el = document.getElementById('embed-blocked');
   if (el) {
-    document.getElementById('eb-title').textContent = title || 'Это видео';
+    const guest = guestName || (guestId === 'admin' ? 'бар' : ('#' + (guestId || '?').slice(-6).toUpperCase()));
+    document.getElementById('eb-title').textContent = (title || 'Это видео') + '  ·  ' + guest;
     document.getElementById('eb-btn').onclick = () => window.open(url, '_blank');
     el.style.display = 'flex';
   }
@@ -1092,10 +1093,10 @@ function hideEmbedBlocked() {
 
 function barCheckAndPlay() {
   if (!APP.playerReady || !APP.barStarted) return;
-  if (APP.queue.length === 0) {
-    setOverlay('qr'); return;
-  }
-  // Всегда начинаем с первого трека если ничего не играет
+  if (APP.queue.length === 0) { setOverlay('qr'); return; }
+  // Уже играет — не перезапускаем
+  if (APP.currentIdx >= 0 && ytPlayer && ytPlayer.getPlayerState &&
+      (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3 || ytPlayer.getPlayerState() === 2)) return;
   if (APP.currentIdx < 0 || APP.currentIdx >= APP.queue.length) {
     APP.currentIdx = 0;
   }
@@ -1138,7 +1139,9 @@ function onTrackEnded() {
   }
   // Следующий трек — первый в очереди
   const track = APP.queue[0];
+  const guestLabel = track.guestName || (track.guestId === 'admin' ? 'бар' : ('#' + (track.guestId || '?').slice(-6).toUpperCase()));
   document.getElementById('overlay-title').textContent = track.title;
+  document.getElementById('overlay-guest').textContent = '🎤 ' + guestLabel;
   document.getElementById('overlay-thumb').src = track.thumb;
   setOverlay('track');
   let t = 10;
