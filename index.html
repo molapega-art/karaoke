@@ -494,6 +494,31 @@
     </div>
   </div>
 
+  <!-- Стартовый экран — нужен для разблокировки автоплея в браузере -->
+  <div id="start-overlay" style="
+    position:absolute;inset:0;background:#000;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:32px;z-index:30;
+    background:radial-gradient(ellipse at center, rgba(214,58,255,0.15) 0%, #000 70%);
+  ">
+    <div style="font-family:'Unbounded',sans-serif;font-size:clamp(28px,6vw,64px);font-weight:900;
+      background:linear-gradient(135deg,#d63aff,#ff3a8c);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      text-align:center;line-height:1.2;">
+      KARAOKE<br><span style="font-size:0.4em;letter-spacing:4px;opacity:0.7">FIX BAR</span>
+    </div>
+    <button onclick="startBar()" style="
+      background:linear-gradient(135deg,#d63aff,#ff3a8c);
+      border:none;border-radius:16px;padding:20px 48px;
+      color:white;font-family:'Unbounded',sans-serif;
+      font-size:18px;font-weight:700;cursor:pointer;
+      box-shadow:0 0 40px rgba(214,58,255,0.5);
+      transition:all 0.2s;
+    ">▶ Запустить</button>
+    <div style="font-size:13px;color:#7a6e8a;letter-spacing:2px;">Нажмите для начала сеанса</div>
+  </div>
+
   <div id="bar-controls">
     <div class="bar-logo">KARAOKE</div>
     <div class="now-playing-info">
@@ -965,13 +990,22 @@ function addToQueue(role) {
 function initBar() {
   updateBarUI();
   generateQR();
+  // Don't autostart — wait for user click to unlock autoplay
+  // showQR will be called after startBar()
+}
+
+function startBar() {
+  document.getElementById('start-overlay').style.display = 'none';
   loadYTAPI();
-  if (APP.queue.length === 0 || APP.currentIdx === -1) showQR();
+  if (APP.queue.length === 0 || APP.currentIdx === -1) {
+    showQR();
+  }
 }
 
 function loadYTAPI() {
   if (window.YT?.Player) { onYTReady(); return; }
-  window.onYouTubeIframeAPIReady = onYTReady;
+  window.startBar          = startBar;
+window.onYouTubeIframeAPIReady = onYTReady;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(s);
@@ -1006,7 +1040,10 @@ function playNext() {
   }
   APP.currentIdx = next;
   updateBarUI();
-  if (APP.playerReady) ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+  if (APP.playerReady) {
+    ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+    ytPlayer.playVideo();
+  }
   saveState();
 }
 
@@ -1116,6 +1153,11 @@ onValue(dbRef, (snapshot) => {
     // Новая песня появилась пока бар ждал на QR
     if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady) {
       hideQR(); playNext();
+    }
+    // Если бар на стартовом экране — просто обновляем счётчик
+    const startOvl = document.getElementById('start-overlay');
+    if (startOvl && startOvl.style.display !== 'none') {
+      updateBarUI();
     }
 
     // Если currentIdx изменился извне (админ поменял) — перезагружаем трек
