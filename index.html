@@ -1229,7 +1229,11 @@ dbRef.on('value', (snapshot) => {
     ...item,
     guestId: item.guestId || 'unknown',
   }));
-  APP.currentIdx = data.currentIdx ?? -1;
+  // currentIdx обновляем из Firebase только если бар не запущен
+  // иначе плеер сам управляет индексом
+  if (!APP.barStarted) {
+    APP.currentIdx = data.currentIdx ?? -1;
+  }
 
   // Обновляем UI в зависимости от роли
   if (document.getElementById('client-screen').classList.contains('active')) {
@@ -1241,21 +1245,16 @@ dbRef.on('value', (snapshot) => {
   if (document.getElementById('bar-screen').classList.contains('active')) {
     updateBarUI();
 
-    // Новая песня появилась или изменился индекс — пересчитываем
+    // Реагируем только если бар запущен и плеер готов
     if (APP.playerReady && APP.barStarted) {
-      const wasEmpty = prevLen === 0 && APP.queue.length > 0;
-      const idxChanged = APP.currentIdx !== prevIdx;
       const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
         (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
 
-      if (wasEmpty && !isPlaying) {
-        // Очередь была пуста, теперь есть треки и ничего не играет — запускаем
+      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
+        // Ничего не играет и есть треки — запускаем (например гость добавил пока бар на QR)
         barCheckAndPlay();
-      } else if (idxChanged && APP.currentIdx >= 0 && !isPlaying) {
-        // Админ поменял порядок и ничего не играет
-        stopCountdown(); setOverlay('none');
-        ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
       }
+      // Если играет — не трогаем, playNext/onTrackEnded сами управляют очередью
     }
   }
 
