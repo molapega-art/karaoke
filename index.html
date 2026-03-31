@@ -418,6 +418,36 @@
   #forbidden-screen h1 { font-family: 'Unbounded', sans-serif; font-size: 28px; color: var(--neon2); }
   #forbidden-screen p { color: var(--muted); font-size: 15px; }
 
+  .guest-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .guest-card.blocked {
+    border-color: rgba(255,58,140,0.3);
+    background: rgba(255,58,140,0.05);
+  }
+
+  .guest-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--neon), var(--neon2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: white; flex-shrink: 0;
+  }
+
+  .guest-info { flex: 1; overflow: hidden; }
+  .guest-name { font-size: 14px; font-weight: 500; }
+  .guest-name.blocked-label { color: var(--neon2); }
+  .guest-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
   @media (max-width: 480px) {
     .search-area { padding: 16px; }
     .bar-logo, .bar-queue-count, .fs-hint { display: none; }
@@ -431,6 +461,28 @@
 <body>
 
 <!-- ═══════════════════════════════════════
+     СТАРТОВЫЙ ЭКРАН — ВВОД ИМЕНИ
+════════════════════════════════════════ -->
+<div id="name-screen" style="display:none">
+  <div class="name-logo">FIX BAR<br><span style="font-size:0.5em;letter-spacing:4px;opacity:0.8">KARAOKE</span></div>
+  <div class="name-tagline">
+    Готовьтесь к <span>запойной ночи!</span><br>
+    Как тебя зовут, звезда?
+  </div>
+  <div class="name-input-wrap">
+    <input
+      class="name-input" id="guest-name-input"
+      type="text" maxlength="30"
+      placeholder="Твоё имя..."
+      onkeydown="if(event.key==='Enter') submitGuestName()"
+    >
+    <button class="btn-primary" style="padding:16px;font-size:15px" onclick="submitGuestName()">
+      Вперёд! →
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
      ГОСТЕВОЙ ЭКРАН
 ════════════════════════════════════════ -->
 <div id="client-screen" class="screen">
@@ -438,6 +490,11 @@
     <div class="top-bar">
       <div class="logo-mark">KARAOKE</div>
       <span class="role-badge guest" id="guest-badge">Гость · FIX BAR</span>
+    </div>
+
+    <div id="blocked-banner" class="blocked-banner" style="display:none">
+      <h3>🚫 Доступ заблокирован</h3>
+      <p>Администратор ограничил вашу возможность добавлять песни.<br>Вы можете видеть очередь.</p>
     </div>
 
     <div class="section-label">Сейчас в очереди</div>
@@ -448,7 +505,7 @@
       </div>
     </div>
 
-    <div class="search-area">
+    <div class="search-area" id="search-area-wrap">
       <h3>🔍 Найти песню</h3>
       <div class="search-row">
         <input
@@ -545,6 +602,23 @@
       <span class="role-badge admin">⚙ Администратор</span>
     </div>
 
+    <!-- Вкладки -->
+    <div style="display:flex;gap:8px;margin-bottom:24px;">
+      <button id="tab-queue-btn" onclick="switchAdminTab('queue')" style="
+        background:rgba(214,58,255,0.15);border:1px solid var(--neon);
+        color:var(--neon);border-radius:10px;padding:10px 20px;
+        font-family:'Unbounded',sans-serif;font-size:11px;font-weight:700;
+        cursor:pointer;transition:all 0.2s;">Очередь</button>
+      <button id="tab-guests-btn" onclick="switchAdminTab('guests')" style="
+        background:var(--card);border:1px solid var(--border);
+        color:var(--muted);border-radius:10px;padding:10px 20px;
+        font-family:'Unbounded',sans-serif;font-size:11px;font-weight:700;
+        cursor:pointer;transition:all 0.2s;">Гости</button>
+    </div>
+
+    <!-- Вкладка: Очередь -->
+    <div id="tab-queue">
+
     <!-- Статистика -->
     <div class="admin-stats">
       <div class="stat-chip"><strong id="a-count">0</strong>в очереди</div>
@@ -584,6 +658,19 @@
       </div>
       <div id="admin-success-msg-area"></div>
     </div>
+
+    </div><!-- /tab-queue -->
+
+    <!-- Вкладка: Гости -->
+    <div id="tab-guests" style="display:none">
+      <div class="section-label">Все гости вечера</div>
+      <div id="guests-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
+        <div style="text-align:center;padding:32px;color:var(--muted);font-size:14px;">
+          Пока никого нет
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -632,6 +719,8 @@ const GUEST_ID = (() => {
   }
   return id;
 })();
+
+let GUEST_NAME = localStorage.getItem('karaoke_guest_name') || '';
 
 // ═══════════════════════════════════════════
 // СОСТОЯНИЕ
@@ -708,7 +797,7 @@ function renderClientQueue() {
       <img class="queue-thumb" src="${item.thumb}" onerror="this.style.display='none'">
       <div class="queue-info">
         <div class="queue-title">${esc(item.title)}</div>
-        <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.65;color:${isMine ? 'var(--neon)' : 'var(--muted)'}">· ${isMine ? 'моя' : '#' + (item.guestId === 'admin' ? 'бар' : (item.guestId || '?????').slice(-6).toUpperCase())}</span></div>
+        <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.65;color:${isMine ? 'var(--neon)' : 'var(--muted)'}">· ${isMine ? 'моя' : (item.guestName || '#' + (item.guestId === 'admin' ? 'бар' : (item.guestId || '?????').slice(-6).toUpperCase()))}</span></div>
       </div>
       ${canDelete ? `<button class="icon-btn del" title="Удалить" onclick="guestDelete(${i})" style="flex-shrink:0">✕</button>` : ''}
     </div>`;
@@ -761,7 +850,7 @@ function renderAdminQueue() {
       <img class="queue-thumb" src="${item.thumb}" onerror="this.style.display='none'">
       <div class="queue-info">
         <div class="queue-title">${esc(item.title)}</div>
-        <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.6;color:var(--amber)">· #${item.guestId === 'admin' ? 'бар' : item.guestId ? item.guestId.slice(-6).toUpperCase() : '?'}</span></div>
+        <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.6;color:var(--amber)">· ${item.guestName || (item.guestId === 'admin' ? 'бар' : '#' + (item.guestId ? item.guestId.slice(-6).toUpperCase() : '?'))}</span></div>
       </div>
       <div class="queue-actions">
         ${!isNow ? `<button class="icon-btn skip" title="Сыграть следующей" onclick="adminPlayNext(${i})">▶</button>` : ''}
@@ -967,7 +1056,10 @@ function addToQueue(role) {
   const selected = APP.search[role].selected;
   if (!selected) return;
 
-  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin' });
+  // Проверка блокировки
+  if (role === 'client' && isGuestBlocked()) return;
+
+  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар' });
   APP.search[role].selected = null;
 
   const ids = searchIds(role);
@@ -1006,6 +1098,10 @@ function loadYTAPI() {
     return;
   }
   window.onYouTubeIframeAPIReady = onYTReady;
+window.submitGuestName  = submitGuestName;
+window.switchAdminTab   = switchAdminTab;
+window.blockGuest       = blockGuest;
+window.unblockGuest     = unblockGuest;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(s);
@@ -1219,6 +1315,16 @@ function loadState() {
 // Firebase realtime listener — синхронизация между всеми устройствами
 let lastCmdSeen = '';
 
+// Синхронизация заблокированных между устройствами
+db.ref('karaoke_blocked').on('value', (snap) => {
+  const list = snap.val() || [];
+  localStorage.setItem('karaoke_blocked', JSON.stringify(list));
+  // Если гостевой экран открыт — обновляем состояние
+  if (document.getElementById('client-screen').classList.contains('active')) {
+    checkIfBlocked();
+  }
+});
+
 dbRef.on('value', (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
@@ -1273,6 +1379,84 @@ dbRef.on('value', (snapshot) => {
     }
   }
 });
+
+// ═══════════════════════════════════════════
+// АДМИН — ВКЛАДКИ И ГОСТИ
+// ═══════════════════════════════════════════
+function switchAdminTab(tab) {
+  document.getElementById('tab-queue').style.display   = tab === 'queue'  ? 'block' : 'none';
+  document.getElementById('tab-guests').style.display  = tab === 'guests' ? 'block' : 'none';
+  document.getElementById('tab-queue-btn').style.background  = tab === 'queue'  ? 'rgba(214,58,255,0.15)' : 'var(--card)';
+  document.getElementById('tab-queue-btn').style.color       = tab === 'queue'  ? 'var(--neon)'   : 'var(--muted)';
+  document.getElementById('tab-queue-btn').style.borderColor = tab === 'queue'  ? 'var(--neon)'   : 'var(--border)';
+  document.getElementById('tab-guests-btn').style.background  = tab === 'guests' ? 'rgba(255,178,58,0.15)' : 'var(--card)';
+  document.getElementById('tab-guests-btn').style.color       = tab === 'guests' ? 'var(--amber)'  : 'var(--muted)';
+  document.getElementById('tab-guests-btn').style.borderColor = tab === 'guests' ? 'var(--amber)'  : 'var(--border)';
+  if (tab === 'guests') renderGuestsList();
+}
+
+function getBlockedList() {
+  try { return JSON.parse(localStorage.getItem('karaoke_blocked') || '[]'); } catch(e) { return []; }
+}
+
+function saveBlockedList(list) {
+  localStorage.setItem('karaoke_blocked', JSON.stringify(list));
+  // Синхронизируем в Firebase
+  try { db.ref('karaoke_blocked').set(list); } catch(e) {}
+}
+
+function blockGuest(guestId) {
+  const list = getBlockedList();
+  if (!list.includes(guestId)) { list.push(guestId); saveBlockedList(list); }
+  renderGuestsList();
+}
+
+function unblockGuest(guestId) {
+  const list = getBlockedList().filter(id => id !== guestId);
+  saveBlockedList(list);
+  renderGuestsList();
+}
+
+function renderGuestsList() {
+  const el = document.getElementById('guests-list');
+  if (!el) return;
+
+  // Собираем уникальных гостей из очереди
+  const guestsMap = {};
+  APP.queue.forEach(item => {
+    if (!item.guestId || item.guestId === 'admin') return;
+    if (!guestsMap[item.guestId]) {
+      guestsMap[item.guestId] = { id: item.guestId, name: item.guestName || '', count: 0 };
+    }
+    guestsMap[item.guestId].count++;
+  });
+
+  const guests = Object.values(guestsMap);
+  const blocked = getBlockedList();
+
+  if (!guests.length) {
+    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:14px;">Пока никого нет</div>';
+    return;
+  }
+
+  el.innerHTML = guests.map(g => {
+    const isBlocked = blocked.includes(g.id);
+    const shortId = g.id.slice(-6).toUpperCase();
+    const displayName = g.name || ('#' + shortId);
+    const initial = (g.name || shortId).charAt(0).toUpperCase();
+    return `<div class="guest-card ${isBlocked ? 'blocked' : ''}">
+      <div class="guest-avatar">${esc(initial)}</div>
+      <div class="guest-info">
+        <div class="guest-name ${isBlocked ? 'blocked-label' : ''}">${esc(displayName)} ${isBlocked ? '🚫' : ''}</div>
+        <div class="guest-meta">#${shortId} · ${g.count} песн${g.count === 1 ? 'я' : g.count < 5 ? 'и' : 'й'} в очереди</div>
+      </div>
+      ${isBlocked
+        ? `<button onclick="unblockGuest('${g.id}')" style="background:rgba(58,255,238,0.1);border:1px solid rgba(58,255,238,0.3);color:var(--neon3);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;">Разблокировать</button>`
+        : `<button onclick="blockGuest('${g.id}')" style="background:rgba(255,58,140,0.1);border:1px solid rgba(255,58,140,0.3);color:var(--neon2);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;">Заблокировать</button>`
+      }
+    </div>`;
+  }).join('');
+}
 
 // ═══════════════════════════════════════════
 // UTILS
