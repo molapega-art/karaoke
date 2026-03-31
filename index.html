@@ -606,7 +606,7 @@
 <!-- Стартовый экран — нужен для разблокировки автоплея в браузере -->
   <div id="start-overlay" style="
     position:fixed;inset:0;background:#000;
-    display:flex;flex-direction:column;
+    display:none;flex-direction:column;
     align-items:center;justify-content:center;
     gap:32px;z-index:100;
     background:radial-gradient(ellipse at center, rgba(214,58,255,0.15) 0%, #000 70%);
@@ -632,7 +632,9 @@
      БАРНЫЙ ЭКРАН
 ════════════════════════════════════════ -->
 <div id="bar-screen" class="screen">
-  <div id="player-wrapper">
+  
+
+    <div id="player-wrapper">
     <div id="yt-player"></div>
 
     <div id="track-overlay">
@@ -878,6 +880,7 @@ function isGuestBlocked() {
 function showBar() {
   loadState();
   document.getElementById('bar-screen').classList.add('active');
+  document.getElementById('start-overlay').style.display = 'flex';
   initBar();
 }
 
@@ -1655,3 +1658,4 @@ document.getElementById('start-btn')?.addEventListener('click', startBar);
 </script>
 </body>
 </html>
+
