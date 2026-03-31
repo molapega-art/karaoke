@@ -464,7 +464,8 @@
      СТАРТОВЫЙ ЭКРАН — ВВОД ИМЕНИ
 ════════════════════════════════════════ -->
 <div id="name-screen" style="display:none">
-  <div class="name-logo">FIX BAR<br><span style="font-size:0.5em;letter-spacing:4px;opacity:0.8">KARAOKE</span></div>
+  <div class="name-logo">FIX BAR</div>
+  <div style="font-family:'Unbounded',sans-serif;font-size:13px;letter-spacing:5px;color:var(--muted);margin-top:-24px;">KARAOKE NIGHT</div>
   <div class="name-tagline">
     Готовьтесь к <span>запойной ночи!</span><br>
     Как тебя зовут, звезда?
@@ -476,7 +477,7 @@
       placeholder="Твоё имя..."
       onkeydown="if(event.key==='Enter') submitGuestName()"
     >
-    <button class="btn-primary" style="padding:16px;font-size:15px" onclick="submitGuestName()">
+    <button class="btn-primary" style="width:100%;padding:18px;font-size:15px;border-radius:16px" onclick="submitGuestName()">
       Вперёд! →
     </button>
   </div>
@@ -1097,6 +1098,8 @@ function addToQueue(role) {
   if (role === 'client' && isGuestBlocked()) return;
 
   APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар' });
+  // Регистрируем гостя в истории
+  if (role === 'client') registerGuestActivity(GUEST_ID, GUEST_NAME);
   APP.search[role].selected = null;
 
   const ids = searchIds(role);
@@ -1158,6 +1161,7 @@ window.onDragLeave      = onDragLeave;
 window.onDrop           = onDrop;
 window.onDragEnd        = onDragEnd;
 window.hideEmbedBlocked = hideEmbedBlocked;
+window.resetGuests       = resetGuests;
 window.startBar         = startBar;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
@@ -1452,6 +1456,16 @@ function switchAdminTab(tab) {
   if (tab === 'guests') renderGuestsList();
 }
 
+function registerGuestActivity(guestId, guestName) {
+  try {
+    const guestRef = db.ref('karaoke_guests/' + guestId);
+    guestRef.transaction(current => {
+      if (!current) return { id: guestId, name: guestName, total: 1, inQueue: 1 };
+      return { ...current, name: guestName, total: (current.total || 0) + 1, inQueue: (current.inQueue || 0) + 1 };
+    });
+  } catch(e) {}
+}
+
 function getBlockedList() {
   try { return JSON.parse(localStorage.getItem('karaoke_blocked') || '[]'); } catch(e) { return []; }
 }
@@ -1474,45 +1488,70 @@ function unblockGuest(guestId) {
   renderGuestsList();
 }
 
+let ALL_GUESTS = {}; // кэш гостей из Firebase
+
+// Слушаем историю гостей
+db.ref('karaoke_guests').on('value', snap => {
+  ALL_GUESTS = snap.val() || {};
+  if (document.getElementById('tab-guests') && document.getElementById('tab-guests').style.display !== 'none') {
+    renderGuestsList();
+  }
+});
+
 function renderGuestsList() {
   const el = document.getElementById('guests-list');
   if (!el) return;
 
-  // Собираем уникальных гостей из очереди
-  const guestsMap = {};
-  APP.queue.forEach(item => {
-    if (!item.guestId || item.guestId === 'admin') return;
-    if (!guestsMap[item.guestId]) {
-      guestsMap[item.guestId] = { id: item.guestId, name: item.guestName || '', count: 0 };
-    }
-    guestsMap[item.guestId].count++;
-  });
-
-  const guests = Object.values(guestsMap);
   const blocked = getBlockedList();
+  const guests = Object.values(ALL_GUESTS);
+
+  // Считаем сколько песен каждого гостя сейчас в очереди
+  const inQueueCount = {};
+  APP.queue.forEach(item => {
+    if (item.guestId && item.guestId !== 'admin') {
+      inQueueCount[item.guestId] = (inQueueCount[item.guestId] || 0) + 1;
+    }
+  });
 
   if (!guests.length) {
     el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:14px;">Пока никого нет</div>';
     return;
   }
 
-  el.innerHTML = guests.map(g => {
+  // Кнопка сброса истории
+  const resetBtn = `<button onclick="resetGuests()" style="
+    background:rgba(255,58,140,0.1);border:1px solid rgba(255,58,140,0.3);
+    color:var(--neon2);border-radius:9px;padding:9px 16px;
+    cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;
+    margin-bottom:16px;display:block;
+  ">🗑 Удалить историю гостей</button>`;
+
+  el.innerHTML = resetBtn + guests.map(g => {
     const isBlocked = blocked.includes(g.id);
-    const shortId = g.id.slice(-6).toUpperCase();
+    const shortId = (g.id || '').slice(-6).toUpperCase();
     const displayName = g.name || ('#' + shortId);
     const initial = (g.name || shortId).charAt(0).toUpperCase();
+    const inQ = inQueueCount[g.id] || 0;
+    const total = g.total || 0;
     return `<div class="guest-card ${isBlocked ? 'blocked' : ''}">
       <div class="guest-avatar">${esc(initial)}</div>
       <div class="guest-info">
         <div class="guest-name ${isBlocked ? 'blocked-label' : ''}">${esc(displayName)} ${isBlocked ? '🚫' : ''}</div>
-        <div class="guest-meta">#${shortId} · ${g.count} песн${g.count === 1 ? 'я' : g.count < 5 ? 'и' : 'й'} в очереди</div>
+        <div class="guest-meta">#${shortId} · в очереди: ${inQ} · всего: ${total}</div>
       </div>
       ${isBlocked
-        ? `<button onclick="unblockGuest('${g.id}')" style="background:rgba(58,255,238,0.1);border:1px solid rgba(58,255,238,0.3);color:var(--neon3);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;">Разблокировать</button>`
-        : `<button onclick="blockGuest('${g.id}')" style="background:rgba(255,58,140,0.1);border:1px solid rgba(255,58,140,0.3);color:var(--neon2);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;">Заблокировать</button>`
+        ? `<button onclick="unblockGuest('${g.id}')" style="background:rgba(58,255,238,0.1);border:1px solid rgba(58,255,238,0.3);color:var(--neon3);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;white-space:nowrap">Разблокировать</button>`
+        : `<button onclick="blockGuest('${g.id}')" style="background:rgba(255,58,140,0.1);border:1px solid rgba(255,58,140,0.3);color:var(--neon2);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Onest',sans-serif;font-size:12px;white-space:nowrap">Заблокировать</button>`
       }
     </div>`;
   }).join('');
+}
+
+function resetGuests() {
+  if (!confirm('Удалить историю всех гостей? Счётчики обнулятся.')) return;
+  db.ref('karaoke_guests').remove();
+  ALL_GUESTS = {};
+  renderGuestsList();
 }
 
 // ═══════════════════════════════════════════
