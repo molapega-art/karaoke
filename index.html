@@ -593,13 +593,6 @@
 </div>
 
 <script>
-window.onerror = function(msg, src, line, col, err) {
-  document.body.insertAdjacentHTML('beforeend',
-    '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:16px;z-index:9999;font-size:14px">' +
-    '🔴 JS ERROR: ' + msg + ' (line ' + line + ')</div>'
-  );
-  return false;
-};
 // ═══════════════════════════════════════════
 // FIREBASE (compat SDK — без import/export)
 // ═══════════════════════════════════════════
@@ -1020,19 +1013,16 @@ function loadYTAPI() {
 let ytPlayer = null;
 
 function onYTReady() {
-  console.log('[YT] onYTReady called');
   ytPlayer = new YT.Player('yt-player', {
     playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1 },
     events: {
       onReady: (e) => {
         APP.playerReady = true;
-        console.log('[YT] Player ready');
         e.target.mute();
         barCheckAndPlay();
       },
       onStateChange: (e) => {
         const states = {'-1':'unstarted','0':'ended','1':'playing','2':'paused','3':'buffering','5':'cued'};
-        console.log('[YT] State:', states[e.data] || e.data);
         if (e.data === YT.PlayerState.PLAYING) {
           ytPlayer.unMute();
           ytPlayer.setVolume(100);
@@ -1043,15 +1033,12 @@ function onYTReady() {
         }
         // -1 после loadVideoById = видео заблокировано или не нашлось
         if (e.data === -1) {
-          console.warn('[YT] Video unstarted — возможно заблокировано для embed');
         }
       },
       onError: (e) => {
         const errors = {'2':'неверный ID','5':'HTML5 ошибка','100':'видео не найдено','101':'embed запрещён','150':'embed запрещён'};
-        console.error('[YT] Ошибка:', errors[e.data] || e.data);
         // Если видео запрещено — автоматически пропускаем
         if (e.data === 101 || e.data === 150) {
-          console.warn('[YT] Это видео нельзя встроить — пропускаем');
           document.getElementById('bar-np-title').textContent += ' ⛔ embed запрещён';
           setTimeout(() => playNext(), 2000);
         }
@@ -1075,7 +1062,6 @@ function setOverlay(mode) {
 
 // Проверяем состояние и запускаем нужное видео
 function barCheckAndPlay() {
-  console.log('[BAR] barCheckAndPlay — ready:', APP.playerReady, 'started:', APP.barStarted, 'queue:', APP.queue.length, 'idx:', APP.currentIdx);
   if (!APP.playerReady || !APP.barStarted) return;
   if (APP.queue.length === 0) {
     setOverlay('qr'); return;
@@ -1085,7 +1071,6 @@ function barCheckAndPlay() {
     APP.currentIdx = 0;
   }
   setOverlay('none');
-  console.log('[BAR] Loading video:', APP.queue[APP.currentIdx].id, APP.queue[APP.currentIdx].title);
   ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
   updateBarUI();
 }
@@ -1093,22 +1078,32 @@ function barCheckAndPlay() {
 function playNext() {
   stopCountdown();
   setOverlay('none');
-  const next = APP.currentIdx + 1;
-  if (next >= APP.queue.length) {
-    APP.currentIdx = -1; saveState(); setOverlay('qr'); updateBarUI(); return;
+  // Удаляем уже сыгранный трек из очереди
+  if (APP.currentIdx >= 0 && APP.queue.length > 0) {
+    APP.queue.splice(0, APP.currentIdx + 1);
+    APP.currentIdx = -1;
   }
-  APP.currentIdx = next;
+  if (APP.queue.length === 0) {
+    saveState(); setOverlay('qr'); updateBarUI(); return;
+  }
+  // Следующий трек теперь первый в очереди
+  APP.currentIdx = 0;
   updateBarUI(); saveState();
   if (APP.playerReady) ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
 }
 
 function onTrackEnded() {
-  const next = APP.currentIdx + 1;
-  if (next >= APP.queue.length) {
-    APP.currentIdx = -1; saveState(); setOverlay('qr'); updateBarUI(); return;
+  // Удаляем текущий трек
+  if (APP.currentIdx >= 0 && APP.queue.length > 0) {
+    APP.queue.splice(0, APP.currentIdx + 1);
+    APP.currentIdx = -1;
+    saveState();
   }
-  // Показываем заставку перед следующим треком
-  const track = APP.queue[next];
+  if (APP.queue.length === 0) {
+    setOverlay('qr'); updateBarUI(); return;
+  }
+  // Следующий трек — первый в очереди
+  const track = APP.queue[0];
   document.getElementById('overlay-title').textContent = track.title;
   document.getElementById('overlay-thumb').src = track.thumb;
   setOverlay('track');
@@ -1208,11 +1203,14 @@ dbRef.on('value', (snapshot) => {
     if (APP.playerReady && APP.barStarted) {
       const wasEmpty = prevLen === 0 && APP.queue.length > 0;
       const idxChanged = APP.currentIdx !== prevIdx;
-      if (wasEmpty || (APP.currentIdx === -1 && APP.queue.length > 0)) {
-        // Очередь была пуста, теперь есть треки — запускаем
+      const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
+        (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
+
+      if (wasEmpty && !isPlaying) {
+        // Очередь была пуста, теперь есть треки и ничего не играет — запускаем
         barCheckAndPlay();
-      } else if (idxChanged && APP.currentIdx >= 0) {
-        // Админ поменял порядок
+      } else if (idxChanged && APP.currentIdx >= 0 && !isPlaying) {
+        // Админ поменял порядок и ничего не играет
         stopCountdown(); setOverlay('none');
         ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
       }
