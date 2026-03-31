@@ -1006,15 +1006,22 @@ window.startBar = function startBar() {
 }
 
 function loadYTAPI() {
-  window.onYouTubeIframeAPIReady = onYTReady;
+  console.log('[YT] loadYTAPI called');
+  window.onYouTubeIframeAPIReady = function() {
+    console.log('[YT] onYouTubeIframeAPIReady fired');
+    onYTReady();
+  };
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
+  s.onerror = function() { console.error('[YT] Failed to load YouTube API script'); };
   document.head.appendChild(s);
+  console.log('[YT] Script tag added');
 }
 
 let ytPlayer = null;
 
 function onYTReady() {
+  console.log('[YT] onYTReady called');
   ytPlayer = new YT.Player('yt-player', {
     playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1 },
     events: {
