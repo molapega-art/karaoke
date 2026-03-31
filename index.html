@@ -1120,11 +1120,13 @@ function playNext() {
   }
   // Следующий трек теперь первый в очереди
   APP.currentIdx = 0;
-  updateBarUI(); saveState();
+  updateBarUI();
   if (APP.playerReady) {
     ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     startPlaybackTimeout();
   }
+  // Сохраняем ПОСЛЕ загрузки — чтобы Firebase не увидел пустую очередь раньше времени
+  saveState();
 }
 
 function onTrackEnded() {
@@ -1132,10 +1134,9 @@ function onTrackEnded() {
   if (APP.currentIdx >= 0 && APP.queue.length > 0) {
     APP.queue.splice(0, APP.currentIdx + 1);
     APP.currentIdx = -1;
-    saveState();
   }
   if (APP.queue.length === 0) {
-    setOverlay('qr'); updateBarUI(); return;
+    saveState(); setOverlay('qr'); updateBarUI(); return;
   }
   // Следующий трек — первый в очереди
   const track = APP.queue[0];
