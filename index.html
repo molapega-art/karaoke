@@ -1032,18 +1032,7 @@ function onYTReady() {
         if (e.data === YT.PlayerState.ENDED) {
           onTrackEnded();
         }
-        // -1 = unstarted — видео может быть заблокировано
-        if (e.data === -1) {
-          const track = APP.queue[APP.currentIdx];
-          if (track && !APP.embedCheckTimer) {
-            APP.embedCheckTimer = setTimeout(() => {
-              APP.embedCheckTimer = null;
-              if (ytPlayer.getPlayerState() !== 1) {
-                showEmbedBlockedScreen(track.id, track.title);
-              }
-            }, 6000);
-          }
-        }
+        // -1 = unstarted — таймаут уже запущен в startPlaybackTimeout
       },
       onError: (e) => {
         if (e.data === 101 || e.data === 150) {
@@ -1073,6 +1062,17 @@ function setOverlay(mode) {
 }
 
 // Проверяем состояние и запускаем нужное видео
+// Если видео не запустилось за 8 секунд — показываем кнопку открыть на YouTube
+function startPlaybackTimeout() {
+  if (APP.embedCheckTimer) { clearTimeout(APP.embedCheckTimer); APP.embedCheckTimer = null; }
+  APP.embedCheckTimer = setTimeout(() => {
+    APP.embedCheckTimer = null;
+    if (!ytPlayer || ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3) return;
+    const track = APP.queue[APP.currentIdx];
+    if (track) showEmbedBlockedScreen(track.id, track.title);
+  }, 8000);
+}
+
 function showEmbedBlockedScreen(videoId, title) {
   const url = 'https://www.youtube.com/watch?v=' + videoId;
   setOverlay('none');
@@ -1102,6 +1102,7 @@ function barCheckAndPlay() {
   setOverlay('none');
   ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
   updateBarUI();
+  startPlaybackTimeout();
 }
 
 function playNext() {
@@ -1119,7 +1120,10 @@ function playNext() {
   // Следующий трек теперь первый в очереди
   APP.currentIdx = 0;
   updateBarUI(); saveState();
-  if (APP.playerReady) ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+  if (APP.playerReady) {
+    ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+    startPlaybackTimeout();
+  }
 }
 
 function onTrackEnded() {
@@ -1166,8 +1170,13 @@ function clearQueue() {
 
 function updateBarUI() {
   const track = APP.currentIdx >= 0 ? APP.queue[APP.currentIdx] : null;
-  document.getElementById('bar-np-title').textContent = track ? track.title : '—';
-  const remaining = APP.queue.length - (APP.currentIdx + 1);
+  if (track) {
+    const guestLabel = track.guestId === 'admin' ? 'бар' : (track.guestName || ('#' + (track.guestId || '?').slice(-6).toUpperCase()));
+    document.getElementById('bar-np-title').textContent = track.title + '  ·  ' + guestLabel;
+  } else {
+    document.getElementById('bar-np-title').textContent = '—';
+  }
+  const remaining = APP.queue.length - (APP.currentIdx >= 0 ? APP.currentIdx + 1 : 0);
   document.getElementById('bar-queue-count').textContent =
     remaining > 0 ? `ещё ${remaining} в очереди` : 'очередь пуста';
 }
