@@ -990,22 +990,16 @@ function addToQueue(role) {
 function initBar() {
   updateBarUI();
   generateQR();
-  // Don't autostart — wait for user click to unlock autoplay
-  // showQR will be called after startBar()
 }
 
 function startBar() {
   document.getElementById('start-overlay').style.display = 'none';
+  APP.barStarted = true;
   loadYTAPI();
-  if (APP.queue.length === 0 || APP.currentIdx === -1) {
-    showQR();
-  }
 }
 
 function loadYTAPI() {
-  if (window.YT?.Player) { onYTReady(); return; }
-  window.startBar          = startBar;
-window.onYouTubeIframeAPIReady = onYTReady;
+  window.onYouTubeIframeAPIReady = onYTReady;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(s);
@@ -1015,42 +1009,57 @@ let ytPlayer = null;
 
 function onYTReady() {
   ytPlayer = new YT.Player('yt-player', {
-    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, iv_load_policy: 3 },
+    playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3 },
     events: {
-      onReady: () => {
+      onReady: (e) => {
         APP.playerReady = true;
-        if (APP.queue.length && APP.currentIdx >= 0) {
-          ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
-        } else if (APP.queue.length && APP.currentIdx === -1) {
-          playNext();
+        // Попытка разблокировать автоплей через mute
+        e.target.mute();
+        if (APP.queue.length > 0) {
+          const idx = APP.currentIdx >= 0 ? APP.currentIdx : 0;
+          APP.currentIdx = idx;
+          hideQR(); hideOverlay();
+          ytPlayer.loadVideoById(APP.queue[idx].id);
+          updateBarUI();
         } else {
           showQR();
         }
       },
-      onStateChange: (e) => { if (e.data === 0) onTrackEnded(); }
+      onStateChange: (e) => {
+        // 1 = playing — unmute once it actually starts
+        if (e.data === YT.PlayerState.PLAYING) {
+          ytPlayer.unMute();
+          ytPlayer.setVolume(100);
+          hideQR(); hideOverlay();
+        }
+        // 0 = ended
+        if (e.data === YT.PlayerState.ENDED) onTrackEnded();
+      }
     }
   });
+}
+
+function playVideo(videoId) {
+  hideQR(); hideOverlay();
+  if (!ytPlayer || !APP.playerReady) return;
+  ytPlayer.loadVideoById(videoId);
 }
 
 function playNext() {
   stopCountdown(); hideOverlay(); hideQR();
   const next = APP.currentIdx + 1;
   if (next >= APP.queue.length) {
-    APP.currentIdx = -1; showQR(); updateBarUI(); return;
+    APP.currentIdx = -1; saveState(); showQR(); updateBarUI(); return;
   }
   APP.currentIdx = next;
-  updateBarUI();
-  if (APP.playerReady) {
-    ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
-    ytPlayer.playVideo();
-  }
-  saveState();
+  updateBarUI(); saveState();
+  playVideo(APP.queue[APP.currentIdx].id);
 }
 
 function onTrackEnded() {
   const next = APP.currentIdx + 1;
   if (next >= APP.queue.length) {
-    APP.currentIdx = -1; showQR(); updateBarUI(); saveState(); return;
+    APP.currentIdx = -1; saveState(); showQR(); updateBarUI(); return;
   }
   showTrackOverlay(APP.queue[next]);
 }
@@ -1080,8 +1089,8 @@ function skipTrack() { stopCountdown(); hideOverlay(); onTrackEnded(); }
 function clearQueue() {
   if (!confirm('Очистить всю очередь?')) return;
   APP.queue = []; APP.currentIdx = -1;
-  stopCountdown(); hideOverlay();
-  if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
+  stopCountdown(); hideOverlay(); hideQR();
+  if (ytPlayer && APP.playerReady) { ytPlayer.stopVideo(); }
   showQR(); updateBarUI(); saveState();
 }
 
@@ -1151,19 +1160,14 @@ onValue(dbRef, (snapshot) => {
     updateBarUI();
 
     // Новая песня появилась пока бар ждал на QR
-    if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady) {
-      hideQR(); playNext();
-    }
-    // Если бар на стартовом экране — просто обновляем счётчик
-    const startOvl = document.getElementById('start-overlay');
-    if (startOvl && startOvl.style.display !== 'none') {
-      updateBarUI();
+    if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady && APP.barStarted) {
+      playNext();
     }
 
     // Если currentIdx изменился извне (админ поменял) — перезагружаем трек
-    if (APP.currentIdx !== prevIdx && APP.currentIdx >= 0 && APP.playerReady) {
+    if (APP.currentIdx !== prevIdx && APP.currentIdx >= 0 && APP.playerReady && APP.barStarted) {
       stopCountdown(); hideOverlay(); hideQR();
-      ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+      playVideo(APP.queue[APP.currentIdx].id);
     }
   }
 
