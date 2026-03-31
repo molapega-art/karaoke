@@ -491,7 +491,7 @@
     letter-spacing:-2px;
   ">FIX BAR</div>
 
-  <div style="
+  <div id="name-subtitle" style="
     font-family:'Unbounded',sans-serif;
     font-size:11px;
     letter-spacing:6px;
@@ -500,7 +500,14 @@
     margin-top:-20px;
   ">Karaoke Night</div>
 
-  <div style="
+  <!-- Переключатель языков -->
+  <div style="display:flex;gap:10px;">
+    <button id="lang-ru" onclick="setLang('ru')" style="background:rgba(214,58,255,0.15);border:2px solid #d63aff;border-radius:12px;padding:10px 16px;cursor:pointer;font-size:22px;">🇷🇺</button>
+    <button id="lang-en" onclick="setLang('en')" style="background:none;border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 16px;cursor:pointer;font-size:22px;opacity:0.45;">🇬🇧</button>
+    <button id="lang-ka" onclick="setLang('ka')" style="background:none;border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 16px;cursor:pointer;font-size:22px;opacity:0.45;">🇬🇪</button>
+  </div>
+
+  <div id="name-tagline" style="
     font-size:clamp(17px,4vw,22px);
     color:#f0eaf8;
     line-height:1.7;
