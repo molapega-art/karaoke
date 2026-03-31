@@ -785,11 +785,7 @@ const dbRef = db.ref('karaoke');
 const BAR_SECRET   = 'welcomedrink2025';
 const ADMIN_SECRET = 'admin2025';
 
-const GUEST_URL = (() => {
-  const u = new URL(window.location.href);
-  u.search = ''; u.hash = '';
-  return u.toString();
-})();
+const GUEST_URL = 'https://karaok.ge/';
 
 // Уникальный ID этого браузера/гостя
 const GUEST_ID = (() => {
