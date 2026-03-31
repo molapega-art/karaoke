@@ -465,7 +465,7 @@
 ════════════════════════════════════════ -->
 <div id="name-screen" style="display:none">
   <div class="name-logo">FIX BAR</div>
-  <div style="font-family:'Unbounded',sans-serif;font-size:13px;letter-spacing:5px;color:var(--muted);margin-top:-24px;">KARAOKE NIGHT</div>
+  <div class="name-sub">Karaoke Night</div>
   <div class="name-tagline">
     Готовьтесь к <span>запойной ночи!</span><br>
     Как тебя зовут, звезда?
@@ -1459,9 +1459,13 @@ function switchAdminTab(tab) {
 function registerGuestActivity(guestId, guestName) {
   try {
     const guestRef = db.ref('karaoke_guests/' + guestId);
-    guestRef.transaction(current => {
-      if (!current) return { id: guestId, name: guestName, total: 1, inQueue: 1 };
-      return { ...current, name: guestName, total: (current.total || 0) + 1, inQueue: (current.inQueue || 0) + 1 };
+    guestRef.once('value').then(snap => {
+      const current = snap.val();
+      if (!current) {
+        guestRef.set({ id: guestId, name: guestName, total: 1 });
+      } else {
+        guestRef.update({ name: guestName, total: (current.total || 0) + 1 });
+      }
     });
   } catch(e) {}
 }
