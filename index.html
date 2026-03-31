@@ -1022,17 +1022,27 @@ function onYTReady() {
         barCheckAndPlay();
       },
       onStateChange: (e) => {
-        const states = {'-1':'unstarted','0':'ended','1':'playing','2':'paused','3':'buffering','5':'cued'};
         if (e.data === YT.PlayerState.PLAYING) {
+          if (APP.embedCheckTimer) { clearTimeout(APP.embedCheckTimer); APP.embedCheckTimer = null; }
           ytPlayer.unMute();
           ytPlayer.setVolume(100);
           setOverlay('none');
+          hideEmbedBlocked();
         }
         if (e.data === YT.PlayerState.ENDED) {
           onTrackEnded();
         }
-        // -1 после loadVideoById = видео заблокировано или не нашлось
+        // -1 = unstarted — видео может быть заблокировано
         if (e.data === -1) {
+          const track = APP.queue[APP.currentIdx];
+          if (track && !APP.embedCheckTimer) {
+            APP.embedCheckTimer = setTimeout(() => {
+              APP.embedCheckTimer = null;
+              if (ytPlayer.getPlayerState() !== 1) {
+                showEmbedBlockedScreen(track.id, track.title);
+              }
+            }, 6000);
+          }
         }
       },
       onError: (e) => {
