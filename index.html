@@ -510,7 +510,7 @@
       text-align:center;line-height:1.2;">
       KARAOKE<br><span style="font-size:0.4em;letter-spacing:4px;opacity:0.7">FIX BAR</span>
     </div>
-    <button id="start-btn" style="
+    <button id="start-btn" onclick="startBar()" style="
       background:linear-gradient(135deg,#d63aff,#ff3a8c);
       border:none;border-radius:16px;padding:20px 48px;
       color:white;font-family:'Unbounded',sans-serif;
@@ -998,7 +998,7 @@ function initBar() {
   generateQR();
 }
 
-function startBar() {
+window.startBar = function startBar() {
   document.getElementById('start-overlay').style.display = 'none';
   APP.barStarted = true;
   loadYTAPI();
@@ -1073,11 +1073,13 @@ function barCheckAndPlay() {
   if (APP.queue.length === 0) {
     setOverlay('qr'); return;
   }
-  const idx = APP.currentIdx >= 0 ? APP.currentIdx : 0;
-  APP.currentIdx = idx;
+  // Всегда начинаем с первого трека если ничего не играет
+  if (APP.currentIdx < 0 || APP.currentIdx >= APP.queue.length) {
+    APP.currentIdx = 0;
+  }
   setOverlay('none');
-  console.log('[BAR] Loading video:', APP.queue[idx].id, APP.queue[idx].title);
-  ytPlayer.loadVideoById(APP.queue[idx].id);
+  console.log('[BAR] Loading video:', APP.queue[APP.currentIdx].id, APP.queue[APP.currentIdx].title);
+  ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
   updateBarUI();
 }
 
@@ -1197,10 +1199,12 @@ dbRef.on('value', (snapshot) => {
 
     // Новая песня появилась или изменился индекс — пересчитываем
     if (APP.playerReady && APP.barStarted) {
-      if (APP.queue.length > 0 && APP.currentIdx === -1) {
-        // Очередь была пуста, теперь есть треки
+      const wasEmpty = prevLen === 0 && APP.queue.length > 0;
+      const idxChanged = APP.currentIdx !== prevIdx;
+      if (wasEmpty || (APP.currentIdx === -1 && APP.queue.length > 0)) {
+        // Очередь была пуста, теперь есть треки — запускаем
         barCheckAndPlay();
-      } else if (APP.currentIdx !== prevIdx && APP.currentIdx >= 0) {
+      } else if (idxChanged && APP.currentIdx >= 0) {
         // Админ поменял порядок
         stopCountdown(); setOverlay('none');
         ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
