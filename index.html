@@ -563,14 +563,7 @@
   <div class="page-wrap">
     <div class="top-bar">
       <div class="logo-mark">KARAOKE</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="display:flex;gap:4px;">
-          <button id="lang-ru" onclick="setLang('ru')" style="background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:16px;transition:all 0.2s;opacity:1;border-color:var(--neon)">🇷🇺</button>
-          <button id="lang-en" onclick="setLang('en')" style="background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:16px;transition:all 0.2s;opacity:0.4">🇬🇧</button>
-          <button id="lang-ka" onclick="setLang('ka')" style="background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:16px;transition:all 0.2s;opacity:0.4">🇬🇪</button>
-        </div>
-        <span class="role-badge guest" id="guest-badge">Гость · FIX BAR</span>
-      </div>
+      <span class="role-badge guest" id="guest-badge">Гость · FIX BAR</span>
     </div>
 
     <div id="blocked-banner" class="blocked-banner" style="display:none">
@@ -994,13 +987,14 @@ function applyTranslations() {
   const overlayLabelEl = document.getElementById('overlay-label-text');
   if (overlayLabelEl) overlayLabelEl.textContent = t('overlayLabel');
 
-  // Переключатель языков — выделить активный
+  // Переключатель языков на стартовом экране — выделить активный
   ['ru','en','ka'].forEach(l => {
     const btn = document.getElementById('lang-' + l);
-    if (btn) {
-      btn.style.opacity = l === LANG ? '1' : '0.4';
-      btn.style.borderColor = l === LANG ? 'var(--neon)' : 'transparent';
-    }
+    if (!btn) return;
+    const isActive = l === LANG;
+    btn.style.opacity = isActive ? '1' : '0.45';
+    btn.style.borderColor = isActive ? '#d63aff' : 'rgba(255,255,255,0.1)';
+    btn.style.background = isActive ? 'rgba(214,58,255,0.15)' : 'none';
   });
 }
 
