@@ -1154,6 +1154,28 @@ function truncate(s, n) {
 }
 
 // ═══════════════════════════════════════════
+// Expose functions to global scope (required for type="module")
+// ═══════════════════════════════════════════
+window.doSearch        = doSearch;
+window.selectResult    = selectResult;
+window.addToQueue      = addToQueue;
+window.showManualInput = showManualInput;
+window.addManualUrl    = addManualUrl;
+window.guestDelete     = guestDelete;
+window.adminDelete     = adminDelete;
+window.adminPlayNext   = adminPlayNext;
+window.adminSkip       = adminSkip;
+window.adminClearAll   = adminClearAll;
+window.skipTrack       = skipTrack;
+window.clearQueue      = clearQueue;
+window.requestFullscreen = requestFullscreen;
+window.onDragStart     = onDragStart;
+window.onDragOver      = onDragOver;
+window.onDragLeave     = onDragLeave;
+window.onDrop          = onDrop;
+window.onDragEnd       = onDragEnd;
+window.onYouTubeIframeAPIReady = () => { if (typeof onYTReady === 'function') onYTReady(); };
+
 boot();
 </script>
 </body>
