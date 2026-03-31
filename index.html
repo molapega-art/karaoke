@@ -882,7 +882,7 @@ async function doSearch(role) {
   document.getElementById(ids.btn).disabled = true;
 
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=4&q=${encodeURIComponent(query)}&key=${YT_KEY}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${YT_KEY}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error();
     const data = await res.json();
@@ -891,12 +891,12 @@ async function doSearch(role) {
       area.innerHTML = `<div class="loading-state">Ничего не найдено. Попробуйте другой запрос.</div>`;
       return;
     }
-    APP.search[role].results = items.map(v => ({
+    APP.search[role].results = items.slice(0, 15).map(v => ({
       id:      v.id.videoId,
       title:   v.snippet.title,
       channel: v.snippet.channelTitle,
       thumb:   v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url || '',
-    }));
+    }))
     renderSearchResults(role);
   } catch {
     area.innerHTML = `<div class="loading-state">
@@ -1036,11 +1036,13 @@ function onYTReady() {
         }
       },
       onError: (e) => {
-        const errors = {'2':'неверный ID','5':'HTML5 ошибка','100':'видео не найдено','101':'embed запрещён','150':'embed запрещён'};
-        // Если видео запрещено — автоматически пропускаем
         if (e.data === 101 || e.data === 150) {
-          document.getElementById('bar-np-title').textContent += ' ⛔ embed запрещён';
-          setTimeout(() => playNext(), 2000);
+          // Видео нельзя встроить — показываем кнопку открыть на YouTube
+          const track = APP.queue[APP.currentIdx];
+          if (track) showEmbedBlockedScreen(track.id, track.title);
+        } else if (e.data === 100) {
+          // Видео не найдено — пропускаем
+          setTimeout(() => playNext(), 1500);
         }
       }
     }
@@ -1061,6 +1063,23 @@ function setOverlay(mode) {
 }
 
 // Проверяем состояние и запускаем нужное видео
+function showEmbedBlockedScreen(videoId, title) {
+  const url = 'https://www.youtube.com/watch?v=' + videoId;
+  setOverlay('none');
+  // Показываем поверх плеера экран с кнопкой
+  const el = document.getElementById('embed-blocked');
+  if (el) {
+    document.getElementById('eb-title').textContent = title || 'Это видео';
+    document.getElementById('eb-btn').onclick = () => window.open(url, '_blank');
+    el.style.display = 'flex';
+  }
+}
+
+function hideEmbedBlocked() {
+  const el = document.getElementById('embed-blocked');
+  if (el) el.style.display = 'none';
+}
+
 function barCheckAndPlay() {
   if (!APP.playerReady || !APP.barStarted) return;
   if (APP.queue.length === 0) {
@@ -1078,6 +1097,7 @@ function barCheckAndPlay() {
 function playNext() {
   stopCountdown();
   setOverlay('none');
+  hideEmbedBlocked();
   // Удаляем уже сыгранный трек из очереди
   if (APP.currentIdx >= 0 && APP.queue.length > 0) {
     APP.queue.splice(0, APP.currentIdx + 1);
