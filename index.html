@@ -559,6 +559,7 @@
         cursor:pointer;
         width:100%;
       "
+    id="name-btn"
     >Вперёд! →</button>
   </div>
 </div>
@@ -1085,7 +1086,7 @@ function showForbidden() {
 function renderClientQueue() {
   const el = document.getElementById('client-queue-list');
   if (!APP.queue.length) {
-    el.innerHTML = `<div class="empty-queue"><span class="icon">🎵</span>Очередь пуста — добавьте первую песню!</div>`;
+    el.innerHTML = `<div class="empty-queue"><span class="icon">🎵</span>${t('queueEmpty')}</div>`;
     return;
   }
   el.innerHTML = APP.queue.map((item, i) => {
@@ -1129,7 +1130,7 @@ function renderAdminQueue() {
     nowTrack ? truncate(nowTrack.title, 20) : '—';
 
   if (!APP.queue.length) {
-    el.innerHTML = `<div class="empty-queue"><span class="icon">🎵</span>Очередь пуста</div>`;
+    el.innerHTML = '<div class="empty-queue"><span class="icon">🎵</span>Очередь пуста</div>';
     return;
   }
 
