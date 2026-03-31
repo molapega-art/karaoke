@@ -563,7 +563,14 @@
   <div class="page-wrap">
     <div class="top-bar">
       <div class="logo-mark">KARAOKE</div>
-      <span class="role-badge guest" id="guest-badge">Гость · FIX BAR</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;gap:4px;">
+          <button id="lang-ru" onclick="setLang('ru')" style="background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:16px;transition:all 0.2s;opacity:1;border-color:var(--neon)">🇷🇺</button>
+          <button id="lang-en" onclick="setLang('en')" style="background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:16px;transition:all 0.2s;opacity:0.4">🇬🇧</button>
+          <button id="lang-ka" onclick="setLang('ka')" style="background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:16px;transition:all 0.2s;opacity:0.4">🇬🇪</button>
+        </div>
+        <span class="role-badge guest" id="guest-badge">Гость · FIX BAR</span>
+      </div>
     </div>
 
     <div id="blocked-banner" class="blocked-banner" style="display:none">
@@ -571,7 +578,7 @@
       <p>Администратор ограничил вашу возможность добавлять песни.<br>Вы можете видеть очередь.</p>
     </div>
 
-    <div class="section-label">Сейчас в очереди</div>
+    <div class="section-label" id="section-queue-label">Сейчас в очереди</div>
     <div class="queue-list" id="client-queue-list">
       <div class="empty-queue">
         <span class="icon">🎵</span>
@@ -580,7 +587,7 @@
     </div>
 
     <div class="search-area" id="search-area-wrap">
-      <h3>🔍 Найти песню</h3>
+      <h3 id="search-title">🔍 Найти песню</h3>
       <div class="search-row">
         <input
           class="search-input" id="search-input" type="text"
@@ -589,14 +596,10 @@
         >
         <button class="btn-primary" onclick="doSearch('client')" id="search-btn">Найти</button>
       </div>
-      <button class="manual-link" onclick="showManualInput('client')" style="margin-bottom:16px">
-        или вставить ссылку YouTube вручную →
-      </button>
+      <button id="manual-link-btn" class="manual-link" onclick="showManualInput('client')" style="margin-bottom:16px">или вставить ссылку YouTube вручную →</button>
       <div id="search-results-area"></div>
       <div class="add-btn-wrap" id="add-btn-wrap" style="display:none">
-        <button class="btn-primary" style="width:100%;padding:15px;font-size:13px" onclick="addToQueue('client')">
-          ✚ Добавить в очередь
-        </button>
+        <button id="add-to-queue-btn" class="btn-primary" style="width:100%;padding:15px;font-size:13px" onclick="addToQueue('client')">✚ Добавить в очередь</button>
       </div>
       <div id="success-msg-area"></div>
     </div>
@@ -638,7 +641,7 @@
     <div id="yt-player"></div>
 
     <div id="track-overlay">
-      <div class="overlay-label">Следующая песня</div>
+      <div class="overlay-label" id="overlay-label-text">Следующая песня</div>
       <img class="overlay-thumb" id="overlay-thumb" src="" alt="">
       <div class="overlay-title" id="overlay-title">—</div>
       <div id="overlay-guest" style="font-size:clamp(14px,2vw,22px);color:var(--neon3);letter-spacing:2px;margin-top:-8px;"></div>
@@ -646,12 +649,12 @@
     </div>
 
     <div id="qr-overlay">
-      <div class="qr-title">
+      <div class="qr-title" id="qr-title">
         Очередь закончилась
-        <span>Выберите следующую песню</span>
+        <span id="qr-sub">Выберите следующую песню</span>
       </div>
       <div class="qr-box" id="qr-box"></div>
-      <div class="qr-hint">Наведите камеру телефона</div>
+      <div class="qr-hint" id="qr-hint-text">Наведите камеру телефона</div>
     </div>
   </div>
 
@@ -821,6 +824,186 @@ const params    = new URLSearchParams(window.location.search);
 const barToken  = params.get('bar');
 const adminToken= params.get('admin');
 
+// ═══════════════════════════════════════════
+// ПЕРЕВОДЫ
+// ═══════════════════════════════════════════
+const TRANSLATIONS = {
+  ru: {
+    // Стартовый экран
+    nameTitle: 'FIX BAR',
+    nameSubtitle: 'Karaoke Night',
+    nameTagline: 'Готовьтесь к <span>запойной ночи!</span><br>Как тебя зовут, звезда?',
+    namePlaceholder: 'Твоё имя...',
+    nameBtn: 'Вперёд! →',
+    // Гостевой экран
+    queueLabel: 'Сейчас в очереди',
+    queueEmpty: 'Очередь пуста — добавьте первую песню!',
+    searchTitle: '🔍 Найти песню',
+    searchPlaceholder: 'Название или исполнитель...',
+    searchBtn: 'Найти',
+    manualLink: 'или вставить ссылку YouTube вручную →',
+    addBtn: '✚ Добавить в очередь',
+    addedMsg: '✓ Песня добавлена в очередь!',
+    myTag: 'моя',
+    blockedTitle: '🚫 Доступ заблокирован',
+    blockedText: 'Администратор ограничил вашу возможность добавлять песни. Вы можете видеть очередь.',
+    roleBadge: 'Гость · FIX BAR',
+    manualPlaceholder: 'https://youtube.com/watch?v=...',
+    // QR экран бара
+    qrTitle: 'Очередь закончилась',
+    qrSub: 'Выберите следующую песню',
+    qrHint: 'Наведите камеру телефона',
+    // Оверлей трека
+    overlayLabel: 'Следующая песня',
+    // Embed blocked
+    embedBlockedLabel: 'Видео недоступно для встраивания',
+    embedOpenBtn: '▶ Открыть на YouTube',
+    embedSkipBtn: 'Пропустить →',
+    // Поиск
+    searchingText: 'Ищем на YouTube...',
+    notFoundText: 'Ничего не найдено. Попробуйте другой запрос.',
+    searchErrorText: 'Не удалось выполнить поиск.',
+    manualBtn: 'Вставить ссылку YouTube вручную',
+    manualContinueBtn: 'Продолжить',
+  },
+  en: {
+    nameTitle: 'FIX BAR',
+    nameSubtitle: 'Karaoke Night',
+    nameTagline: 'Get ready for a <span>wild night!</span><br>What's your name, star?',
+    namePlaceholder: 'Your name...',
+    nameBtn: 'Let's go! →',
+    queueLabel: 'Now in queue',
+    queueEmpty: 'Queue is empty — add the first song!',
+    searchTitle: '🔍 Find a song',
+    searchPlaceholder: 'Song name or artist...',
+    searchBtn: 'Search',
+    manualLink: 'or paste a YouTube link manually →',
+    addBtn: '✚ Add to queue',
+    addedMsg: '✓ Song added to queue!',
+    myTag: 'mine',
+    blockedTitle: '🚫 Access restricted',
+    blockedText: 'The admin has restricted your ability to add songs. You can still see the queue.',
+    roleBadge: 'Guest · FIX BAR',
+    manualPlaceholder: 'https://youtube.com/watch?v=...',
+    qrTitle: 'Queue is empty',
+    qrSub: 'Choose the next song',
+    qrHint: 'Point your camera at the code',
+    overlayLabel: 'Next song',
+    embedBlockedLabel: 'This video cannot be embedded',
+    embedOpenBtn: '▶ Open on YouTube',
+    embedSkipBtn: 'Skip →',
+    searchingText: 'Searching YouTube...',
+    notFoundText: 'Nothing found. Try a different query.',
+    searchErrorText: 'Search failed.',
+    manualBtn: 'Paste YouTube link manually',
+    manualContinueBtn: 'Continue',
+  },
+  ka: {
+    nameTitle: 'FIX BAR',
+    nameSubtitle: 'კარაოკე ღამე',
+    nameTagline: 'მზად იყავი <span>ეპიკური ღამისთვის!</span><br>როგორ გქვია, ვარსკვლავო?',
+    namePlaceholder: 'შენი სახელი...',
+    nameBtn: 'წინ! →',
+    queueLabel: 'რიგში ახლა',
+    queueEmpty: 'რიგი ცარიელია — დაამატე პირველი სიმღერა!',
+    searchTitle: '🔍 სიმღერის ძიება',
+    searchPlaceholder: 'სიმღერა ან შემსრულებელი...',
+    searchBtn: 'ძიება',
+    manualLink: 'ან ჩასვი YouTube ბმული →',
+    addBtn: '✚ რიგში დამატება',
+    addedMsg: '✓ სიმღერა დაემატა!',
+    myTag: 'ჩემი',
+    blockedTitle: '🚫 წვდომა შეზღუდულია',
+    blockedText: 'ადმინისტრატორმა შეზღუდა სიმღერების დამატება. შეგიძლია ნახო რიგი.',
+    roleBadge: 'სტუმარი · FIX BAR',
+    manualPlaceholder: 'https://youtube.com/watch?v=...',
+    qrTitle: 'რიგი დასრულდა',
+    qrSub: 'აირჩიე შემდეგი სიმღერა',
+    qrHint: 'მიუშვი კამერა კოდს',
+    overlayLabel: 'შემდეგი სიმღერა',
+    embedBlockedLabel: 'ვიდეო მიუწვდომელია',
+    embedOpenBtn: '▶ YouTube-ზე გახსნა',
+    embedSkipBtn: 'გამოტოვება →',
+    searchingText: 'YouTube-ზე ვეძებთ...',
+    notFoundText: 'ვერაფერი მოიძებნა.',
+    searchErrorText: 'ძიება ვერ მოხერხდა.',
+    manualBtn: 'YouTube ბმულის ჩასმა',
+    manualContinueBtn: 'გაგრძელება',
+  }
+};
+
+let LANG = localStorage.getItem('karaoke_lang') || 'ru';
+function t(key) { return TRANSLATIONS[LANG][key] || TRANSLATIONS.ru[key] || key; }
+
+function setLang(lang) {
+  LANG = lang;
+  localStorage.setItem('karaoke_lang', lang);
+  applyTranslations();
+  // Обновить placeholder инпута на стартовом экране
+  const ni = document.getElementById('guest-name-input');
+  if (ni) ni.placeholder = t('namePlaceholder');
+  const nb = document.getElementById('name-btn');
+  if (nb) nb.textContent = t('nameBtn');
+  const ns = document.getElementById('name-subtitle');
+  if (ns) ns.textContent = t('nameSubtitle');
+  const nt = document.getElementById('name-tagline');
+  if (nt) nt.innerHTML = t('nameTagline');
+}
+
+function applyTranslations() {
+  // Стартовый экран
+  const nameTagEl = document.getElementById('name-tagline');
+  if (nameTagEl) nameTagEl.innerHTML = t('nameTagline');
+  const nameSubEl = document.getElementById('name-subtitle');
+  if (nameSubEl) nameSubEl.textContent = t('nameSubtitle');
+  const nameInputEl = document.getElementById('guest-name-input');
+  if (nameInputEl) nameInputEl.placeholder = t('namePlaceholder');
+  const nameBtnEl = document.getElementById('name-btn');
+  if (nameBtnEl) nameBtnEl.textContent = t('nameBtn');
+
+  // Гостевой экран
+  const secLabel = document.getElementById('section-queue-label');
+  if (secLabel) secLabel.textContent = t('queueLabel');
+  const searchTitleEl = document.getElementById('search-title');
+  if (searchTitleEl) searchTitleEl.textContent = t('searchTitle');
+  const searchInputEl = document.getElementById('search-input');
+  if (searchInputEl) searchInputEl.placeholder = t('searchPlaceholder');
+  const searchBtnEl = document.getElementById('search-btn');
+  if (searchBtnEl) searchBtnEl.textContent = t('searchBtn');
+  const manualLinkEl = document.getElementById('manual-link-btn');
+  if (manualLinkEl) manualLinkEl.textContent = t('manualLink');
+  const addBtnEl = document.getElementById('add-to-queue-btn');
+  if (addBtnEl) addBtnEl.textContent = t('addBtn');
+
+  // Бейдж гостя
+  updateGuestBadge();
+
+  // Очередь — перерендер чтобы обновить метки
+  if (document.getElementById('client-screen').classList.contains('active')) {
+    renderClientQueue();
+    checkIfBlocked();
+  }
+
+  // QR экран
+  const qrTitleEl = document.getElementById('qr-title');
+  if (qrTitleEl) qrTitleEl.childNodes[0].textContent = t('qrTitle');
+  const qrSubEl = document.getElementById('qr-sub');
+  if (qrSubEl) qrSubEl.textContent = t('qrSub');
+  const qrHintEl = document.getElementById('qr-hint-text');
+  if (qrHintEl) qrHintEl.textContent = t('qrHint');
+  const overlayLabelEl = document.getElementById('overlay-label-text');
+  if (overlayLabelEl) overlayLabelEl.textContent = t('overlayLabel');
+
+  // Переключатель языков — выделить активный
+  ['ru','en','ka'].forEach(l => {
+    const btn = document.getElementById('lang-' + l);
+    if (btn) {
+      btn.style.opacity = l === LANG ? '1' : '0.4';
+      btn.style.borderColor = l === LANG ? 'var(--neon)' : 'transparent';
+    }
+  });
+}
+
 function boot() {
   if (barToken !== null) {
     barToken === BAR_SECRET ? showBar() : showForbidden();
@@ -855,6 +1038,7 @@ function enterClientScreen() {
   updateGuestBadge();
   checkIfBlocked();
   renderClientQueue();
+  applyTranslations();
 }
 
 function updateGuestBadge() {
@@ -1239,6 +1423,7 @@ window.onDrop           = onDrop;
 window.onDragEnd        = onDragEnd;
 window.hideEmbedBlocked = hideEmbedBlocked;
 window.resetGuests       = resetGuests;
+window.setLang           = setLang;
 window.startBar         = startBar;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
