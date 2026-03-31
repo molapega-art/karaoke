@@ -1013,17 +1013,34 @@ function onYTReady() {
     events: {
       onReady: (e) => {
         APP.playerReady = true;
-        e.target.mute(); // mute для обхода autoplay-блокировки
+        console.log('[YT] Player ready');
+        e.target.mute();
         barCheckAndPlay();
       },
       onStateChange: (e) => {
+        const states = {'-1':'unstarted','0':'ended','1':'playing','2':'paused','3':'buffering','5':'cued'};
+        console.log('[YT] State:', states[e.data] || e.data);
         if (e.data === YT.PlayerState.PLAYING) {
           ytPlayer.unMute();
           ytPlayer.setVolume(100);
-          setOverlay('none'); // скрыть всё когда пошло видео
+          setOverlay('none');
         }
         if (e.data === YT.PlayerState.ENDED) {
           onTrackEnded();
+        }
+        // -1 после loadVideoById = видео заблокировано или не нашлось
+        if (e.data === -1) {
+          console.warn('[YT] Video unstarted — возможно заблокировано для embed');
+        }
+      },
+      onError: (e) => {
+        const errors = {'2':'неверный ID','5':'HTML5 ошибка','100':'видео не найдено','101':'embed запрещён','150':'embed запрещён'};
+        console.error('[YT] Ошибка:', errors[e.data] || e.data);
+        // Если видео запрещено — автоматически пропускаем
+        if (e.data === 101 || e.data === 150) {
+          console.warn('[YT] Это видео нельзя встроить — пропускаем');
+          document.getElementById('bar-np-title').textContent += ' ⛔ embed запрещён';
+          setTimeout(() => playNext(), 2000);
         }
       }
     }
@@ -1045,6 +1062,7 @@ function setOverlay(mode) {
 
 // Проверяем состояние и запускаем нужное видео
 function barCheckAndPlay() {
+  console.log('[BAR] barCheckAndPlay — ready:', APP.playerReady, 'started:', APP.barStarted, 'queue:', APP.queue.length, 'idx:', APP.currentIdx);
   if (!APP.playerReady || !APP.barStarted) return;
   if (APP.queue.length === 0) {
     setOverlay('qr'); return;
@@ -1052,6 +1070,7 @@ function barCheckAndPlay() {
   const idx = APP.currentIdx >= 0 ? APP.currentIdx : 0;
   APP.currentIdx = idx;
   setOverlay('none');
+  console.log('[BAR] Loading video:', APP.queue[idx].id, APP.queue[idx].title);
   ytPlayer.loadVideoById(APP.queue[idx].id);
   updateBarUI();
 }
