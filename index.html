@@ -508,7 +508,7 @@
       text-align:center;line-height:1.2;">
       KARAOKE<br><span style="font-size:0.4em;letter-spacing:4px;opacity:0.7">FIX BAR</span>
     </div>
-    <button onclick="startBar()" style="
+    <button id="start-btn" style="
       background:linear-gradient(135deg,#d63aff,#ff3a8c);
       border:none;border-radius:16px;padding:20px 48px;
       color:white;font-family:'Unbounded',sans-serif;
@@ -1219,6 +1219,9 @@ window.onDragEnd       = onDragEnd;
 window.onYouTubeIframeAPIReady = () => { if (typeof onYTReady === 'function') onYTReady(); };
 
 boot();
+
+// Вешаем обработчики после загрузки модуля
+document.getElementById('start-btn')?.addEventListener('click', startBar);
 </script>
 </body>
 </html>
