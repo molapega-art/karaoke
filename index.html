@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Karaoke — FIX BAR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Onest:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08060f;
+    --surface: #110d1e;
+    --card: #1a1430;
+    --neon: #d63aff;
+    --neon2: #ff3a8c;
+    --neon3: #3affee;
+    --amber: #ffb23a;
+    --text: #f0eaf8;
+    --muted: #7a6e8a;
+    --border: rgba(214,58,255,0.2);
+    --border-amber: rgba(255,178,58,0.25);
+    --glow: 0 0 24px rgba(214,58,255,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Onest', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: block; }
+
+  /* ─────────────────────────────────────────
+     SHARED COMPONENTS
+  ───────────────────────────────────────── */
+  .page-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-top: 8px;
+  }
+
+  .logo-mark {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--neon), var(--neon2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .role-badge {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .role-badge.guest  { background: rgba(214,58,255,0.1); color: var(--neon); border: 1px solid rgba(214,58,255,0.3); }
+  .role-badge.admin  { background: rgba(255,178,58,0.1); color: var(--amber); border: 1px solid rgba(255,178,58,0.3); }
+
+  .section-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* Queue items */
+  .queue-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px; }
+
+  .queue-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s, background 0.2s;
+    user-select: none;
+  }
+
+  .queue-item.now-playing {
+    border-color: var(--neon);
+    background: rgba(214,58,255,0.08);
+    box-shadow: 0 0 16px rgba(214,58,255,0.12);
+  }
+
+  .queue-item.dragging {
+    opacity: 0.4;
+  }
+
+  .queue-item.drag-over {
+    border-color: var(--amber);
+    background: rgba(255,178,58,0.06);
+  }
+
+  .queue-num {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 11px; color: var(--muted);
+    min-width: 20px; text-align: center; flex-shrink: 0;
+  }
+  .queue-item.now-playing .queue-num { color: var(--neon); }
+
+  .pulse-dot {
+    width: 8px; height: 8px;
+    background: var(--neon); border-radius: 50%;
+    animation: pulse 1.4s infinite; flex-shrink: 0;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .queue-thumb {
+    width: 56px; height: 40px; border-radius: 6px;
+    object-fit: cover; flex-shrink: 0; background: var(--card);
+  }
+
+  .queue-info { flex: 1; overflow: hidden; }
+  .queue-title {
+    font-size: 13px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .queue-channel {
+    font-size: 11px; color: var(--muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Admin-specific queue controls */
+  .queue-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .icon-btn {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 7px; width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; transition: all 0.15s;
+    color: var(--muted);
+  }
+  .icon-btn:hover.move  { border-color: var(--amber); color: var(--amber); }
+  .icon-btn:hover.del   { border-color: var(--neon2); color: var(--neon2); }
+  .icon-btn:hover.skip  { border-color: var(--neon3); color: var(--neon3); }
+
+  .drag-handle {
+    cursor: grab; font-size: 16px; color: var(--muted);
+    padding: 0 4px; flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .drag-handle:hover { color: var(--amber); }
+  .drag-handle:active { cursor: grabbing; }
+
+  .empty-queue {
+    text-align: center; padding: 40px 0; color: var(--muted); font-size: 14px;
+  }
+  .empty-queue .icon { font-size: 40px; display: block; margin-bottom: 12px; }
+
+  /* Search */
+  .search-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+  }
+  .search-area h3 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 15px; font-weight: 700; margin-bottom: 16px;
+  }
+  .search-row { display: flex; gap: 10px; margin-bottom: 20px; }
+
+  .search-input {
+    flex: 1; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; color: var(--text);
+    font-family: 'Onest', sans-serif; font-size: 15px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus {
+    border-color: var(--neon);
+    box-shadow: 0 0 0 3px rgba(214,58,255,0.12);
+  }
+  .search-input::placeholder { color: var(--muted); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--neon), var(--neon2));
+    border: none; border-radius: 10px;
+    padding: 12px 20px; color: white;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .results-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .result-item {
+    display: flex; gap: 12px; align-items: center;
+    background: var(--card); border: 2px solid transparent;
+    border-radius: 12px; padding: 10px 12px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .result-item:hover { border-color: var(--border); }
+  .result-item.selected {
+    border-color: var(--neon); background: rgba(214,58,255,0.1);
+    box-shadow: 0 0 16px rgba(214,58,255,0.12);
+  }
+  .result-thumb {
+    width: 72px; height: 50px; border-radius: 7px;
+    object-fit: cover; flex-shrink: 0; background: var(--surface);
+  }
+  .result-info { flex: 1; overflow: hidden; }
+  .result-title {
+    font-size: 13px; font-weight: 500; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .result-channel { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .result-check {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--neon); align-items: center;
+    justify-content: center; flex-shrink: 0;
+    font-size: 11px; display: none;
+  }
+  .result-item.selected .result-check { display: flex; }
+
+  .loading-state {
+    text-align: center; padding: 32px; color: var(--muted); font-size: 14px;
+  }
+  .spinner {
+    width: 30px; height: 30px;
+    border: 3px solid var(--border); border-top-color: var(--neon);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .add-btn-wrap { margin-top: 14px; }
+
+  .success-msg {
+    background: rgba(58,255,238,0.1);
+    border: 1px solid rgba(58,255,238,0.3);
+    border-radius: 12px; padding: 14px;
+    text-align: center; color: var(--neon3);
+    font-size: 14px; font-weight: 500; margin-top: 14px;
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .manual-link {
+    background: none; border: none; color: var(--muted);
+    font-family: 'Onest', sans-serif; font-size: 12px; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+    margin-top: 12px; display: block; text-align: center;
+    transition: color 0.2s;
+  }
+  .manual-link:hover { color: var(--neon3); }
+
+  /* Admin stats bar */
+  .admin-stats {
+    display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border-amber);
+    border-radius: 10px; padding: 10px 16px;
+    font-size: 12px; color: var(--muted);
+  }
+  .stat-chip strong {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 18px; color: var(--amber);
+    display: block; margin-bottom: 2px;
+  }
+
+  .admin-global-actions {
+    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+
+  .btn-outline {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 9px; padding: 9px 16px;
+    color: var(--text); font-family: 'Onest', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-outline:hover { border-color: var(--neon3); color: var(--neon3); }
+  .btn-outline.danger:hover { border-color: var(--neon2); color: var(--neon2); }
+
+  /* ─────────────────────────────────────────
+     BAR SCREEN
+  ───────────────────────────────────────── */
+  #bar-screen {
+    position: fixed; inset: 0; background: #000;
+    display: none; flex-direction: column;
+  }
+  #bar-screen.active { display: flex; }
+
+  #player-wrapper { position: relative; flex: 1; background: #000; overflow: hidden; }
+
+  #yt-player { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+
+  #track-overlay {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10; gap: 28px; padding: 48px;
+    background: radial-gradient(ellipse at center, rgba(214,58,255,0.15) 0%, #000 70%);
+  }
+  #track-overlay.visible { display: flex; }
+
+  .overlay-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(11px, 1.4vw, 15px);
+    letter-spacing: 6px; text-transform: uppercase; color: var(--muted);
+  }
+  .overlay-thumb {
+    width: min(340px, 55vw); aspect-ratio: 16/9;
+    border-radius: 16px; object-fit: cover;
+    border: 2px solid rgba(214,58,255,0.3);
+    box-shadow: 0 0 60px rgba(214,58,255,0.3);
+  }
+  .overlay-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(18px, 3.5vw, 42px);
+    font-weight: 900; text-align: center; line-height: 1.2; max-width: 80%;
+    background: linear-gradient(135deg, #fff, var(--neon));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .overlay-countdown {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(52px, 10vw, 100px);
+    font-weight: 900; color: var(--neon);
+    text-shadow: var(--glow); line-height: 1;
+  }
+
+  #qr-overlay {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 32px; z-index: 20;
+    background: radial-gradient(ellipse at center, rgba(58,255,238,0.07) 0%, #000 70%);
+  }
+  #qr-overlay.visible { display: flex; }
+
+  .qr-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(22px, 4.5vw, 54px);
+    font-weight: 900; text-align: center; color: var(--text); line-height: 1.25;
+  }
+  .qr-title span {
+    background: linear-gradient(135deg, var(--neon3), var(--neon));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; display: block; margin-top: 4px;
+  }
+  .qr-box {
+    background: white; padding: 20px; border-radius: 20px;
+    box-shadow: 0 0 60px rgba(58,255,238,0.25);
+  }
+  .qr-hint { font-size: clamp(12px, 1.8vw, 18px); color: var(--muted); letter-spacing: 2px; }
+
+  #bar-controls {
+    background: rgba(17,13,30,0.97); backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 13px 22px;
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .bar-logo {
+    font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 900;
+    background: linear-gradient(135deg, var(--neon), var(--neon2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; flex-shrink: 0;
+  }
+  .now-playing-info { flex: 1; overflow: hidden; }
+  .np-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
+  .np-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-queue-count { font-family: 'Unbounded', sans-serif; font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+  .ctrl-btn {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 7px 14px;
+    cursor: pointer; font-family: 'Onest', sans-serif; font-size: 13px;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .ctrl-btn:hover { border-color: var(--neon); color: var(--neon); }
+  .ctrl-btn.danger:hover { border-color: var(--neon2); color: var(--neon2); }
+  .fs-hint { font-size: 11px; color: var(--muted); white-space: nowrap; cursor: pointer; }
+  .fs-hint:hover { color: var(--neon3); }
+
+  /* ─────────────────────────────────────────
+     403
+  ───────────────────────────────────────── */
+  #forbidden-screen {
+    display: none; min-height: 100vh;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; text-align: center; padding: 32px;
+  }
+  #forbidden-screen.active { display: flex; }
+  #forbidden-screen h1 { font-family: 'Unbounded', sans-serif; font-size: 28px; color: var(--neon2); }
+  #forbidden-screen p { color: var(--muted); font-size: 15px; }
+
+  @media (max-width: 480px) {
+    .search-area { padding: 16px; }
+    .bar-logo, .bar-queue-count, .fs-hint { display: none; }
+    #bar-controls { padding: 10px 14px; }
+    .admin-stats { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     ГОСТЕВОЙ ЭКРАН
+════════════════════════════════════════ -->
+<div id="client-screen" class="screen">
+  <div class="page-wrap">
+    <div class="top-bar">
+      <div class="logo-mark">KARAOKE</div>
+      <span class="role-badge guest" id="guest-badge">Гость · FIX BAR</span>
+    </div>
+
+    <div class="section-label">Сейчас в очереди</div>
+    <div class="queue-list" id="client-queue-list">
+      <div class="empty-queue">
+        <span class="icon">🎵</span>
+        Очередь пуста — добавьте первую песню!
+      </div>
+    </div>
+
+    <div class="search-area">
+      <h3>🔍 Найти песню</h3>
+      <div class="search-row">
+        <input
+          class="search-input" id="search-input" type="text"
+          placeholder="Название или исполнитель..."
+          onkeydown="if(event.key==='Enter') doSearch('client')"
+        >
+        <button class="btn-primary" onclick="doSearch('client')" id="search-btn">Найти</button>
+      </div>
+      <button class="manual-link" onclick="showManualInput('client')" style="margin-bottom:16px">
+        или вставить ссылку YouTube вручную →
+      </button>
+      <div id="search-results-area"></div>
+      <div class="add-btn-wrap" id="add-btn-wrap" style="display:none">
+        <button class="btn-primary" style="width:100%;padding:15px;font-size:13px" onclick="addToQueue('client')">
+          ✚ Добавить в очередь
+        </button>
+      </div>
+      <div id="success-msg-area"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     БАРНЫЙ ЭКРАН
+════════════════════════════════════════ -->
+<div id="bar-screen" class="screen">
+  <div id="player-wrapper">
+    <iframe id="yt-player" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+
+    <div id="track-overlay">
+      <div class="overlay-label">Следующая песня</div>
+      <img class="overlay-thumb" id="overlay-thumb" src="" alt="">
+      <div class="overlay-title" id="overlay-title">—</div>
+      <div class="overlay-countdown" id="overlay-countdown">10</div>
+    </div>
+
+    <div id="qr-overlay">
+      <div class="qr-title">
+        Очередь закончилась
+        <span>Выберите следующую песню</span>
+      </div>
+      <div class="qr-box" id="qr-box"></div>
+      <div class="qr-hint">Наведите камеру телефона</div>
+    </div>
+  </div>
+
+  <div id="bar-controls">
+    <div class="bar-logo">KARAOKE</div>
+    <div class="now-playing-info">
+      <div class="np-label">Сейчас играет</div>
+      <div class="np-title" id="bar-np-title">—</div>
+    </div>
+    <div class="bar-queue-count" id="bar-queue-count">0 в очереди</div>
+    <button class="ctrl-btn" onclick="skipTrack()">Пропустить →</button>
+    <button class="ctrl-btn danger" onclick="clearQueue()">Очистить</button>
+    <span class="fs-hint" onclick="requestFullscreen()" title="Полный экран">⛶ FS</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     АДМИН ЭКРАН
+════════════════════════════════════════ -->
+<div id="admin-screen" class="screen">
+  <div class="page-wrap">
+    <div class="top-bar">
+      <div class="logo-mark">KARAOKE</div>
+      <span class="role-badge admin">⚙ Администратор</span>
+    </div>
+
+    <!-- Статистика -->
+    <div class="admin-stats">
+      <div class="stat-chip"><strong id="a-count">0</strong>в очереди</div>
+      <div class="stat-chip"><strong id="a-playing">—</strong>играет сейчас</div>
+    </div>
+
+    <!-- Глобальные действия -->
+    <div class="admin-global-actions">
+      <button class="btn-outline" onclick="adminSkip()">⏭ Пропустить трек</button>
+      <button class="btn-outline danger" onclick="adminClearAll()">✕ Очистить всё</button>
+    </div>
+
+    <div class="section-label">Очередь — можно перетащить или удалить</div>
+    <div class="queue-list" id="admin-queue-list">
+      <div class="empty-queue"><span class="icon">🎵</span>Очередь пуста</div>
+    </div>
+
+    <!-- Поиск для добавления из админки -->
+    <div class="search-area" style="border-color: var(--border-amber);">
+      <h3>➕ Добавить песню</h3>
+      <div class="search-row">
+        <input
+          class="search-input" id="admin-search-input" type="text"
+          placeholder="Название или исполнитель..."
+          onkeydown="if(event.key==='Enter') doSearch('admin')"
+        >
+        <button class="btn-primary" onclick="doSearch('admin')" id="admin-search-btn">Найти</button>
+      </div>
+      <button class="manual-link" onclick="showManualInput('admin')" style="margin-bottom:16px">
+        или вставить ссылку YouTube вручную →
+      </button>
+      <div id="admin-search-results-area"></div>
+      <div class="add-btn-wrap" id="admin-add-btn-wrap" style="display:none">
+        <button class="btn-primary" style="width:100%;padding:15px;font-size:13px;background:linear-gradient(135deg,var(--amber),var(--neon2))" onclick="addToQueue('admin')">
+          ✚ Добавить в очередь
+        </button>
+      </div>
+      <div id="admin-success-msg-area"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 403 -->
+<div id="forbidden-screen">
+  <h1>Нет доступа</h1>
+  <p>Неверный код доступа.</p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// КОНФИГ — смените пароли перед деплоем
+// ═══════════════════════════════════════════
+const BAR_SECRET   = 'welcomedrink2025';
+const ADMIN_SECRET = 'admin2025';
+
+const GUEST_URL = (() => {
+  const u = new URL(window.location.href);
+  u.search = ''; u.hash = '';
+  return u.toString();
+})();
+
+// Уникальный ID этого браузера/гостя
+const GUEST_ID = (() => {
+  let id = localStorage.getItem('karaoke_guest_id');
+  if (!id) {
+    id = 'g_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    localStorage.setItem('karaoke_guest_id', id);
+  }
+  return id;
+})();
+
+// ═══════════════════════════════════════════
+// СОСТОЯНИЕ
+// ═══════════════════════════════════════════
+const APP = {
+  queue: [],        // [{id, title, channel, thumb}]
+  currentIdx: -1,
+  // search state per role
+  search: {
+    client: { results: [], selected: null },
+    admin:  { results: [], selected: null },
+  },
+  countdownTimer: null,
+  playerReady: false,
+};
+
+// ═══════════════════════════════════════════
+// РОУТИНГ
+// ═══════════════════════════════════════════
+const params    = new URLSearchParams(window.location.search);
+const barToken  = params.get('bar');
+const adminToken= params.get('admin');
+
+function boot() {
+  if (barToken !== null) {
+    barToken === BAR_SECRET ? showBar() : showForbidden();
+  } else if (adminToken !== null) {
+    adminToken === ADMIN_SECRET ? showAdmin() : showForbidden();
+  } else {
+    showClient();
+  }
+}
+
+function showClient() {
+  loadState();
+  document.getElementById('client-screen').classList.add('active');
+  // Показываем короткий ID гостя в шапке
+  const shortId = GUEST_ID.slice(-6).toUpperCase();
+  document.getElementById('guest-badge').textContent = `Гость #${shortId} · FIX BAR`;
+  renderClientQueue();
+}
+
+function showBar() {
+  loadState();
+  document.getElementById('bar-screen').classList.add('active');
+  initBar();
+}
+
+function showAdmin() {
+  loadState();
+  document.getElementById('admin-screen').classList.add('active');
+  renderAdminQueue();
+}
+
+function showForbidden() {
+  document.getElementById('forbidden-screen').classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// ГОСТЕВАЯ ОЧЕРЕДЬ
+// ═══════════════════════════════════════════
+function renderClientQueue() {
+  const el = document.getElementById('client-queue-list');
+  if (!APP.queue.length) {
+    el.innerHTML = `<div class="empty-queue"><span class="icon">🎵</span>Очередь пуста — добавьте первую песню!</div>`;
+    return;
+  }
+  el.innerHTML = APP.queue.map((item, i) => {
+    const isNow = i === APP.currentIdx;
+    const isMine = item.guestId === GUEST_ID;
+    const canDelete = isMine && !isNow;
+    return `<div class="queue-item ${isNow ? 'now-playing' : ''}">
+      ${isNow ? `<div class="pulse-dot"></div>` : `<span class="queue-num">${i + 1}</span>`}
+      <img class="queue-thumb" src="${item.thumb}" onerror="this.style.display='none'">
+      <div class="queue-info">
+        <div class="queue-title">${esc(item.title)}</div>
+        <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.65;color:${isMine ? 'var(--neon)' : 'var(--muted)'}">· ${isMine ? 'моя' : '#' + (item.guestId === 'admin' ? 'бар' : (item.guestId || '?????').slice(-6).toUpperCase())}</span></div>
+      </div>
+      ${canDelete ? `<button class="icon-btn del" title="Удалить" onclick="guestDelete(${i})" style="flex-shrink:0">✕</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function guestDelete(i) {
+  if (APP.queue[i]?.guestId !== GUEST_ID) return;
+  if (i === APP.currentIdx) return; // нельзя удалить играющую
+  APP.queue.splice(i, 1);
+  if (APP.currentIdx >= APP.queue.length) APP.currentIdx = APP.queue.length - 1;
+  if (APP.queue.length === 0) APP.currentIdx = -1;
+  saveState();
+  renderClientQueue();
+}
+
+// ═══════════════════════════════════════════
+// АДМИНСКАЯ ОЧЕРЕДЬ (drag-and-drop + удаление)
+// ═══════════════════════════════════════════
+let dragSrcIdx = null;
+
+function renderAdminQueue() {
+  const el = document.getElementById('admin-queue-list');
+
+  // Stats
+  document.getElementById('a-count').textContent = APP.queue.length;
+  const nowTrack = APP.currentIdx >= 0 ? APP.queue[APP.currentIdx] : null;
+  document.getElementById('a-playing').textContent =
+    nowTrack ? truncate(nowTrack.title, 20) : '—';
+
+  if (!APP.queue.length) {
+    el.innerHTML = `<div class="empty-queue"><span class="icon">🎵</span>Очередь пуста</div>`;
+    return;
+  }
+
+  el.innerHTML = APP.queue.map((item, i) => {
+    const isNow = i === APP.currentIdx;
+    return `<div
+      class="queue-item ${isNow ? 'now-playing' : ''}"
+      id="adm-item-${i}"
+      draggable="true"
+      ondragstart="onDragStart(event,${i})"
+      ondragover="onDragOver(event,${i})"
+      ondragleave="onDragLeave(event,${i})"
+      ondrop="onDrop(event,${i})"
+      ondragend="onDragEnd()"
+    >
+      <span class="drag-handle" title="Перетащить">⠿</span>
+      ${isNow ? `<div class="pulse-dot"></div>` : `<span class="queue-num">${i + 1}</span>`}
+      <img class="queue-thumb" src="${item.thumb}" onerror="this.style.display='none'">
+      <div class="queue-info">
+        <div class="queue-title">${esc(item.title)}</div>
+        <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.6;color:var(--amber)">· #${item.guestId === 'admin' ? 'бар' : item.guestId ? item.guestId.slice(-6).toUpperCase() : '?'}</span></div>
+      </div>
+      <div class="queue-actions">
+        ${!isNow ? `<button class="icon-btn skip" title="Сыграть следующей" onclick="adminPlayNext(${i})">▶</button>` : ''}
+        <button class="icon-btn del" title="Удалить" onclick="adminDelete(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Drag-and-drop
+function onDragStart(e, i) {
+  dragSrcIdx = i;
+  setTimeout(() => document.getElementById(`adm-item-${i}`)?.classList.add('dragging'), 0);
+}
+function onDragOver(e, i) {
+  e.preventDefault();
+  if (i !== dragSrcIdx) document.getElementById(`adm-item-${i}`)?.classList.add('drag-over');
+}
+function onDragLeave(e, i) {
+  document.getElementById(`adm-item-${i}`)?.classList.remove('drag-over');
+}
+function onDrop(e, targetIdx) {
+  e.preventDefault();
+  if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+
+  const moved = APP.queue.splice(dragSrcIdx, 1)[0];
+  APP.queue.splice(targetIdx, 0, moved);
+
+  // Корректируем currentIdx
+  if (APP.currentIdx === dragSrcIdx) {
+    APP.currentIdx = targetIdx;
+  } else if (dragSrcIdx < APP.currentIdx && targetIdx >= APP.currentIdx) {
+    APP.currentIdx--;
+  } else if (dragSrcIdx > APP.currentIdx && targetIdx <= APP.currentIdx) {
+    APP.currentIdx++;
+  }
+
+  dragSrcIdx = null;
+  saveState();
+  renderAdminQueue();
+}
+function onDragEnd() {
+  document.querySelectorAll('.queue-item').forEach(el => {
+    el.classList.remove('dragging', 'drag-over');
+  });
+  dragSrcIdx = null;
+}
+
+// Удалить трек
+function adminDelete(i) {
+  if (!confirm(`Удалить «${APP.queue[i]?.title}» из очереди?`)) return;
+
+  APP.queue.splice(i, 1);
+
+  if (APP.currentIdx >= APP.queue.length) APP.currentIdx = APP.queue.length - 1;
+  if (APP.queue.length === 0) APP.currentIdx = -1;
+
+  saveState();
+  renderAdminQueue();
+}
+
+// Поставить следующей (сдвинуть на позицию currentIdx+1)
+function adminPlayNext(i) {
+  const target = APP.currentIdx + 1;
+  if (i === target) return;
+  const moved = APP.queue.splice(i, 1)[0];
+  const insertAt = i < target ? target - 1 : target;
+  APP.queue.splice(insertAt, 0, moved);
+  saveState();
+  renderAdminQueue();
+}
+
+// Глобальный пропуск из админки
+function adminSkip() {
+  saveState();
+  // Сигнал бару через localStorage
+  localStorage.setItem('karaoke_cmd', 'skip:' + Date.now());
+  // Если открыт бар в этой вкладке — вызвать напрямую
+  if (typeof skipTrack === 'function' &&
+      document.getElementById('bar-screen').classList.contains('active')) skipTrack();
+  renderAdminQueue();
+}
+
+function adminClearAll() {
+  if (!confirm('Очистить всю очередь? Это остановит воспроизведение.')) return;
+  APP.queue = [];
+  APP.currentIdx = -1;
+  saveState();
+  localStorage.setItem('karaoke_cmd', 'clear:' + Date.now());
+  renderAdminQueue();
+}
+
+// ═══════════════════════════════════════════
+// ПОИСК (общий для гостя и админа) — YouTube Data API v3
+// ═══════════════════════════════════════════
+const YT_KEY = 'AIzaSyDNEZRxoXtbSQBPhorshSq6suESQMgzp3k';
+
+function searchIds(role) {
+  return {
+    input:   role === 'admin' ? 'admin-search-input'        : 'search-input',
+    btn:     role === 'admin' ? 'admin-search-btn'          : 'search-btn',
+    area:    role === 'admin' ? 'admin-search-results-area' : 'search-results-area',
+    addWrap: role === 'admin' ? 'admin-add-btn-wrap'        : 'add-btn-wrap',
+    success: role === 'admin' ? 'admin-success-msg-area'    : 'success-msg-area',
+  };
+}
+
+async function doSearch(role) {
+  const ids = searchIds(role);
+  const query = document.getElementById(ids.input).value.trim();
+  if (!query) return;
+
+  APP.search[role].selected = null;
+  document.getElementById(ids.addWrap).style.display = 'none';
+  document.getElementById(ids.success).innerHTML = '';
+
+  const area = document.getElementById(ids.area);
+  area.innerHTML = `<div class="loading-state"><div class="spinner"></div>Ищем на YouTube...</div>`;
+  document.getElementById(ids.btn).disabled = true;
+
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=4&q=${encodeURIComponent(query)}&key=${YT_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const items = data.items || [];
+    if (!items.length) {
+      area.innerHTML = `<div class="loading-state">Ничего не найдено. Попробуйте другой запрос.</div>`;
+      return;
+    }
+    APP.search[role].results = items.map(v => ({
+      id:      v.id.videoId,
+      title:   v.snippet.title,
+      channel: v.snippet.channelTitle,
+      thumb:   v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url || '',
+    }));
+    renderSearchResults(role);
+  } catch {
+    area.innerHTML = `<div class="loading-state">
+      Не удалось выполнить поиск.<br>
+      <small style="font-size:11px;color:#555;margin-top:8px;display:block">Проверьте интернет.</small>
+    </div>`;
+    const ml = document.createElement('button');
+    ml.className = 'manual-link';
+    ml.textContent = 'Вставить ссылку YouTube вручную';
+    ml.onclick = () => showManualInput(role);
+    area.appendChild(ml);
+  } finally {
+    document.getElementById(ids.btn).disabled = false;
+  }
+}
+
+function renderSearchResults(role) {
+  const ids = searchIds(role);
+  const area = document.getElementById(ids.area);
+  const results = APP.search[role].results;
+  area.innerHTML = `<div class="results-list">${
+    results.map((v, i) => `
+      <div class="result-item" id="${role}-res-${i}" onclick="selectResult('${role}',${i})">
+        <img class="result-thumb" src="${v.thumb}"
+          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2272%22 height=%2250%22><rect width=%2272%22 height=%2250%22 fill=%22%231a1430%22/><text x=%2236%22 y=%2230%22 fill=%22%237a6e8a%22 text-anchor=%22middle%22 font-size=%2216%22>♪</text></svg>'">
+        <div class="result-info">
+          <div class="result-title">${esc(v.title)}</div>
+          <div class="result-channel">${esc(v.channel)}</div>
+        </div>
+        <div class="result-check">✓</div>
+      </div>`
+    ).join('')
+  }</div>`;
+}
+
+function selectResult(role, i) {
+  APP.search[role].selected = APP.search[role].results[i];
+  document.querySelectorAll(`#${searchIds(role).area} .result-item`)
+    .forEach((el, idx) => el.classList.toggle('selected', idx === i));
+  document.getElementById(searchIds(role).addWrap).style.display = 'block';
+}
+
+function showManualInput(role) {
+  const ids = searchIds(role);
+  const area = document.getElementById(ids.area);
+  area.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+      <input class="search-input" id="${role}-yt-url"
+        placeholder="https://youtube.com/watch?v=..." style="width:100%">
+      <button class="btn-primary" onclick="addManualUrl('${role}')">Продолжить</button>
+    </div>`;
+}
+
+function addManualUrl(role) {
+  const val = document.getElementById(`${role}-yt-url`)?.value.trim() || '';
+  const match = val.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (!match) { alert('Некорректная ссылка YouTube'); return; }
+  const id = match[1];
+  APP.search[role].selected = {
+    id, title: 'Выбранное видео', channel: 'YouTube',
+    thumb: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+  };
+  document.getElementById(searchIds(role).addWrap).style.display = 'block';
+}
+
+function addToQueue(role) {
+  const selected = APP.search[role].selected;
+  if (!selected) return;
+
+  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin' });
+  APP.search[role].selected = null;
+
+  const ids = searchIds(role);
+  document.getElementById(ids.input).value = '';
+  document.getElementById(ids.area).innerHTML = '';
+  document.getElementById(ids.addWrap).style.display = 'none';
+  document.getElementById(ids.success).innerHTML =
+    `<div class="success-msg">✓ Песня добавлена в очередь!</div>`;
+  setTimeout(() => { document.getElementById(ids.success).innerHTML = ''; }, 3000);
+
+  saveState();
+
+  if (role === 'client') renderClientQueue();
+  if (role === 'admin')  renderAdminQueue();
+}
+
+// ═══════════════════════════════════════════
+// БАР — ПЛЕЕР
+// ═══════════════════════════════════════════
+function initBar() {
+  updateBarUI();
+  generateQR();
+  loadYTAPI();
+  if (APP.queue.length === 0 || APP.currentIdx === -1) showQR();
+}
+
+function loadYTAPI() {
+  if (window.YT?.Player) { onYTReady(); return; }
+  window.onYouTubeIframeAPIReady = onYTReady;
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+
+let ytPlayer = null;
+
+function onYTReady() {
+  ytPlayer = new YT.Player('yt-player', {
+    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, iv_load_policy: 3 },
+    events: {
+      onReady: () => {
+        APP.playerReady = true;
+        if (APP.queue.length && APP.currentIdx >= 0) {
+          ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+        } else if (APP.queue.length && APP.currentIdx === -1) {
+          playNext();
+        } else {
+          showQR();
+        }
+      },
+      onStateChange: (e) => { if (e.data === 0) onTrackEnded(); }
+    }
+  });
+}
+
+function playNext() {
+  stopCountdown(); hideOverlay(); hideQR();
+  const next = APP.currentIdx + 1;
+  if (next >= APP.queue.length) {
+    APP.currentIdx = -1; showQR(); updateBarUI(); return;
+  }
+  APP.currentIdx = next;
+  updateBarUI();
+  if (APP.playerReady) ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+  saveState();
+}
+
+function onTrackEnded() {
+  const next = APP.currentIdx + 1;
+  if (next >= APP.queue.length) {
+    APP.currentIdx = -1; showQR(); updateBarUI(); saveState(); return;
+  }
+  showTrackOverlay(APP.queue[next]);
+}
+
+function showTrackOverlay(track) {
+  document.getElementById('overlay-title').textContent = track.title;
+  document.getElementById('overlay-thumb').src = track.thumb;
+  document.getElementById('track-overlay').classList.add('visible');
+  let t = 10;
+  document.getElementById('overlay-countdown').textContent = t;
+  APP.countdownTimer = setInterval(() => {
+    t--;
+    document.getElementById('overlay-countdown').textContent = t;
+    if (t <= 0) { stopCountdown(); hideOverlay(); playNext(); }
+  }, 1000);
+}
+
+function hideOverlay() { document.getElementById('track-overlay').classList.remove('visible'); }
+function showQR()      { document.getElementById('qr-overlay').classList.add('visible'); }
+function hideQR()      { document.getElementById('qr-overlay').classList.remove('visible'); }
+function stopCountdown() {
+  if (APP.countdownTimer) { clearInterval(APP.countdownTimer); APP.countdownTimer = null; }
+}
+
+function skipTrack() { stopCountdown(); hideOverlay(); onTrackEnded(); }
+
+function clearQueue() {
+  if (!confirm('Очистить всю очередь?')) return;
+  APP.queue = []; APP.currentIdx = -1;
+  stopCountdown(); hideOverlay();
+  if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
+  showQR(); updateBarUI(); saveState();
+}
+
+function updateBarUI() {
+  const track = APP.currentIdx >= 0 ? APP.queue[APP.currentIdx] : null;
+  document.getElementById('bar-np-title').textContent = track ? track.title : '—';
+  const remaining = APP.queue.length - (APP.currentIdx + 1);
+  document.getElementById('bar-queue-count').textContent =
+    remaining > 0 ? `ещё ${remaining} в очереди` : 'очередь пуста';
+}
+
+function requestFullscreen() {
+  const el = document.getElementById('bar-screen');
+  (el.requestFullscreen || el.webkitRequestFullscreen || function(){}).call(el);
+}
+
+// ═══════════════════════════════════════════
+// QR-КОД
+// ═══════════════════════════════════════════
+function generateQR() {
+  document.getElementById('qr-box').innerHTML =
+    `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GUEST_URL)}"
+      width="200" height="200" style="display:block">`;
+}
+
+// ═══════════════════════════════════════════
+// СТЕЙТ — localStorage + cross-tab
+// ═══════════════════════════════════════════
+function saveState() {
+  try {
+    localStorage.setItem('karaoke_q',   JSON.stringify(APP.queue));
+    localStorage.setItem('karaoke_idx', String(APP.currentIdx));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const q   = localStorage.getItem('karaoke_q');
+    const idx = localStorage.getItem('karaoke_idx');
+    if (q) {
+      APP.queue = JSON.parse(q).map(item => ({
+        ...item,
+        guestId: item.guestId || 'unknown',
+      }));
+    }
+    if (idx !== null) APP.currentIdx = parseInt(idx);
+  } catch(e) {}
+}
+
+window.addEventListener('storage', (e) => {
+  // Очередь изменилась (кто-то добавил или админ отредактировал)
+  if (e.key === 'karaoke_q' || e.key === 'karaoke_idx') {
+    loadState();
+    if (document.getElementById('client-screen').classList.contains('active')) renderClientQueue();
+    if (document.getElementById('admin-screen').classList.contains('active'))  renderAdminQueue();
+    if (document.getElementById('bar-screen').classList.contains('active')) {
+      updateBarUI();
+      // Новая песня появилась пока бар ждал
+      if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady) {
+        hideQR(); playNext();
+      }
+    }
+  }
+
+  // Команды от админа (skip / clear)
+  if (e.key === 'karaoke_cmd' && document.getElementById('bar-screen').classList.contains('active')) {
+    const cmd = (e.newValue || '').split(':')[0];
+    if (cmd === 'skip')  { loadState(); skipTrack(); }
+    if (cmd === 'clear') {
+      loadState();
+      stopCountdown(); hideOverlay();
+      if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
+      showQR(); updateBarUI();
+    }
+  }
+});
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function truncate(s, n) {
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+// ═══════════════════════════════════════════
+boot();
+</script>
+</body>
+</html>
