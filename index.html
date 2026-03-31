@@ -1009,89 +1009,100 @@ let ytPlayer = null;
 
 function onYTReady() {
   ytPlayer = new YT.Player('yt-player', {
-    playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3 },
+    playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1 },
     events: {
       onReady: (e) => {
         APP.playerReady = true;
-        // Попытка разблокировать автоплей через mute
-        e.target.mute();
-        if (APP.queue.length > 0) {
-          const idx = APP.currentIdx >= 0 ? APP.currentIdx : 0;
-          APP.currentIdx = idx;
-          hideQR(); hideOverlay();
-          ytPlayer.loadVideoById(APP.queue[idx].id);
-          updateBarUI();
-        } else {
-          showQR();
-        }
+        e.target.mute(); // mute для обхода autoplay-блокировки
+        barCheckAndPlay();
       },
       onStateChange: (e) => {
-        // 1 = playing — unmute once it actually starts
         if (e.data === YT.PlayerState.PLAYING) {
           ytPlayer.unMute();
           ytPlayer.setVolume(100);
-          hideQR(); hideOverlay();
+          setOverlay('none'); // скрыть всё когда пошло видео
         }
-        // 0 = ended
-        if (e.data === YT.PlayerState.ENDED) onTrackEnded();
+        if (e.data === YT.PlayerState.ENDED) {
+          onTrackEnded();
+        }
       }
     }
   });
 }
 
-function playVideo(videoId) {
-  hideQR(); hideOverlay();
-  if (!ytPlayer || !APP.playerReady) return;
-  ytPlayer.loadVideoById(videoId);
+// Единая точка управления оверлеями: 'qr' | 'track' | 'none'
+function setOverlay(mode) {
+  const qr      = document.getElementById('qr-overlay');
+  const track   = document.getElementById('track-overlay');
+  qr.style.display    = mode === 'qr'    ? 'flex' : 'none';
+  track.style.display = mode === 'track' ? 'flex' : 'none';
+  // убираем классы чтобы не конфликтовали
+  qr.classList.remove('visible');
+  track.classList.remove('visible');
+  if (mode === 'qr')    qr.style.display    = 'flex';
+  if (mode === 'track') track.style.display = 'flex';
+}
+
+// Проверяем состояние и запускаем нужное видео
+function barCheckAndPlay() {
+  if (!APP.playerReady || !APP.barStarted) return;
+  if (APP.queue.length === 0) {
+    setOverlay('qr'); return;
+  }
+  const idx = APP.currentIdx >= 0 ? APP.currentIdx : 0;
+  APP.currentIdx = idx;
+  setOverlay('none');
+  ytPlayer.loadVideoById(APP.queue[idx].id);
+  updateBarUI();
 }
 
 function playNext() {
-  stopCountdown(); hideOverlay(); hideQR();
+  stopCountdown();
+  setOverlay('none');
   const next = APP.currentIdx + 1;
   if (next >= APP.queue.length) {
-    APP.currentIdx = -1; saveState(); showQR(); updateBarUI(); return;
+    APP.currentIdx = -1; saveState(); setOverlay('qr'); updateBarUI(); return;
   }
   APP.currentIdx = next;
   updateBarUI(); saveState();
-  playVideo(APP.queue[APP.currentIdx].id);
+  if (APP.playerReady) ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
 }
 
 function onTrackEnded() {
   const next = APP.currentIdx + 1;
   if (next >= APP.queue.length) {
-    APP.currentIdx = -1; saveState(); showQR(); updateBarUI(); return;
+    APP.currentIdx = -1; saveState(); setOverlay('qr'); updateBarUI(); return;
   }
-  showTrackOverlay(APP.queue[next]);
-}
-
-function showTrackOverlay(track) {
+  // Показываем заставку перед следующим треком
+  const track = APP.queue[next];
   document.getElementById('overlay-title').textContent = track.title;
   document.getElementById('overlay-thumb').src = track.thumb;
-  document.getElementById('track-overlay').classList.add('visible');
+  setOverlay('track');
   let t = 10;
   document.getElementById('overlay-countdown').textContent = t;
   APP.countdownTimer = setInterval(() => {
     t--;
     document.getElementById('overlay-countdown').textContent = t;
-    if (t <= 0) { stopCountdown(); hideOverlay(); playNext(); }
+    if (t <= 0) { stopCountdown(); playNext(); }
   }, 1000);
 }
 
-function hideOverlay() { document.getElementById('track-overlay').classList.remove('visible'); }
-function showQR()      { document.getElementById('qr-overlay').classList.add('visible'); }
-function hideQR()      { document.getElementById('qr-overlay').classList.remove('visible'); }
+// Legacy aliases — используем setOverlay()
+function hideOverlay() { if(typeof setOverlay==='function') setOverlay('none'); }
+function showQR()      { if(typeof setOverlay==='function') setOverlay('qr'); }
+function hideQR()      { const el=document.getElementById('qr-overlay'); if(el) el.style.display='none'; }
 function stopCountdown() {
   if (APP.countdownTimer) { clearInterval(APP.countdownTimer); APP.countdownTimer = null; }
 }
 
-function skipTrack() { stopCountdown(); hideOverlay(); onTrackEnded(); }
+function skipTrack() { stopCountdown(); setOverlay('none'); onTrackEnded(); }
 
 function clearQueue() {
   if (!confirm('Очистить всю очередь?')) return;
   APP.queue = []; APP.currentIdx = -1;
-  stopCountdown(); hideOverlay(); hideQR();
-  if (ytPlayer && APP.playerReady) { ytPlayer.stopVideo(); }
-  showQR(); updateBarUI(); saveState();
+  stopCountdown();
+  if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
+  setOverlay('qr'); updateBarUI(); saveState();
 }
 
 function updateBarUI() {
@@ -1159,15 +1170,16 @@ onValue(dbRef, (snapshot) => {
   if (document.getElementById('bar-screen').classList.contains('active')) {
     updateBarUI();
 
-    // Новая песня появилась пока бар ждал на QR
-    if (APP.queue.length > 0 && APP.currentIdx === -1 && APP.playerReady && APP.barStarted) {
-      playNext();
-    }
-
-    // Если currentIdx изменился извне (админ поменял) — перезагружаем трек
-    if (APP.currentIdx !== prevIdx && APP.currentIdx >= 0 && APP.playerReady && APP.barStarted) {
-      stopCountdown(); hideOverlay(); hideQR();
-      playVideo(APP.queue[APP.currentIdx].id);
+    // Новая песня появилась или изменился индекс — пересчитываем
+    if (APP.playerReady && APP.barStarted) {
+      if (APP.queue.length > 0 && APP.currentIdx === -1) {
+        // Очередь была пуста, теперь есть треки
+        barCheckAndPlay();
+      } else if (APP.currentIdx !== prevIdx && APP.currentIdx >= 0) {
+        // Админ поменял порядок
+        stopCountdown(); setOverlay('none');
+        ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
+      }
     }
   }
 
@@ -1178,9 +1190,9 @@ onValue(dbRef, (snapshot) => {
     if (document.getElementById('bar-screen').classList.contains('active')) {
       if (cmd === 'skip')  skipTrack();
       if (cmd === 'clear') {
-        stopCountdown(); hideOverlay();
+        stopCountdown();
         if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
-        showQR(); updateBarUI();
+        setOverlay('qr'); updateBarUI();
       }
     }
   }
