@@ -999,23 +999,22 @@ function initBar() {
 }
 
 window.startBar = function startBar() {
-  alert('startBar вызван!');
-  document.getElementById('start-overlay').style.display = 'none';
+  if (APP.barStarted) return; // защита от двойного вызова
   APP.barStarted = true;
+  document.getElementById('start-overlay').style.display = 'none';
   loadYTAPI();
 }
 
 function loadYTAPI() {
-  console.log('[YT] loadYTAPI called');
-  window.onYouTubeIframeAPIReady = function() {
-    console.log('[YT] onYouTubeIframeAPIReady fired');
+  // Если API уже загружен — вызываем сразу
+  if (window.YT && window.YT.Player) {
     onYTReady();
-  };
+    return;
+  }
+  window.onYouTubeIframeAPIReady = onYTReady;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
-  s.onerror = function() { console.error('[YT] Failed to load YouTube API script'); };
   document.head.appendChild(s);
-  console.log('[YT] Script tag added');
 }
 
 let ytPlayer = null;
