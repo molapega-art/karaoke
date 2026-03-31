@@ -556,10 +556,10 @@
 
   <!-- Стартовый экран — нужен для разблокировки автоплея в браузере -->
   <div id="start-overlay" style="
-    position:absolute;inset:0;background:#000;
+    position:fixed;inset:0;background:#000;
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
-    gap:32px;z-index:30;
+    gap:32px;z-index:100;
     background:radial-gradient(ellipse at center, rgba(214,58,255,0.15) 0%, #000 70%);
   ">
     <div style="font-family:'Unbounded',sans-serif;font-size:clamp(28px,6vw,64px);font-weight:900;
@@ -756,11 +756,48 @@ function boot() {
 
 function showClient() {
   loadState();
+  if (!GUEST_NAME) {
+    document.getElementById('name-screen').style.display = 'flex';
+  } else {
+    enterClientScreen();
+  }
+}
+
+function submitGuestName() {
+  const input = document.getElementById('guest-name-input');
+  const name = (input?.value || '').trim();
+  if (!name) { input?.focus(); return; }
+  GUEST_NAME = name;
+  localStorage.setItem('karaoke_guest_name', GUEST_NAME);
+  document.getElementById('name-screen').style.display = 'none';
+  enterClientScreen();
+}
+
+function enterClientScreen() {
   document.getElementById('client-screen').classList.add('active');
-  // Показываем короткий ID гостя в шапке
-  const shortId = GUEST_ID.slice(-6).toUpperCase();
-  document.getElementById('guest-badge').textContent = `Гость #${shortId} · FIX BAR`;
+  updateGuestBadge();
+  checkIfBlocked();
   renderClientQueue();
+}
+
+function updateGuestBadge() {
+  const badge = document.getElementById('guest-badge');
+  if (badge) badge.textContent = (GUEST_NAME || ('Гость #' + GUEST_ID.slice(-6).toUpperCase())) + ' · FIX BAR';
+}
+
+function checkIfBlocked() {
+  const blocked = isGuestBlocked();
+  const banner = document.getElementById('blocked-banner');
+  const search = document.getElementById('search-area-wrap');
+  if (banner) banner.style.display = blocked ? 'block' : 'none';
+  if (search) search.style.display = blocked ? 'none' : 'block';
+}
+
+function isGuestBlocked() {
+  try {
+    const list = JSON.parse(localStorage.getItem('karaoke_blocked') || '[]');
+    return list.includes(GUEST_ID);
+  } catch(e) { return false; }
 }
 
 function showBar() {
@@ -1102,6 +1139,26 @@ window.submitGuestName  = submitGuestName;
 window.switchAdminTab   = switchAdminTab;
 window.blockGuest       = blockGuest;
 window.unblockGuest     = unblockGuest;
+window.doSearch         = doSearch;
+window.selectResult     = selectResult;
+window.addToQueue       = addToQueue;
+window.showManualInput  = showManualInput;
+window.addManualUrl     = addManualUrl;
+window.guestDelete      = guestDelete;
+window.adminDelete      = adminDelete;
+window.adminPlayNext    = adminPlayNext;
+window.adminSkip        = adminSkip;
+window.adminClearAll    = adminClearAll;
+window.skipTrack        = skipTrack;
+window.clearQueue       = clearQueue;
+window.requestFullscreen= requestFullscreen;
+window.onDragStart      = onDragStart;
+window.onDragOver       = onDragOver;
+window.onDragLeave      = onDragLeave;
+window.onDrop           = onDrop;
+window.onDragEnd        = onDragEnd;
+window.hideEmbedBlocked = hideEmbedBlocked;
+window.startBar         = startBar;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(s);
