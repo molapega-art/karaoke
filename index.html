@@ -383,6 +383,7 @@
     border-top: 1px solid var(--border);
     padding: 13px 22px;
     display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    position: relative; z-index: 30;
   }
   .bar-logo {
     font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 900;
@@ -1577,35 +1578,34 @@ function playNext() {
   stopCountdown();
   setOverlay('none');
   hideEmbedBlocked();
-  // Удаляем уже сыгранный трек из очереди
-  if (APP.currentIdx >= 0 && APP.queue.length > 0) {
-    APP.queue.splice(0, APP.currentIdx + 1);
+  // Удаляем сыгранный трек (currentIdx = 0 после сдвига)
+  if (APP.currentIdx >= 0) {
+    APP.queue.splice(APP.currentIdx, 1);
     APP.currentIdx = -1;
   }
   if (APP.queue.length === 0) {
     saveState(); setOverlay('qr'); updateBarUI(); return;
   }
-  // Следующий трек теперь первый в очереди
   APP.currentIdx = 0;
   updateBarUI();
   if (APP.playerReady) {
     ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     startPlaybackTimeout();
   }
-  // Сохраняем ПОСЛЕ загрузки — чтобы Firebase не увидел пустую очередь раньше времени
   saveState();
 }
 
 function onTrackEnded() {
-  // Удаляем текущий трек
-  if (APP.currentIdx >= 0 && APP.queue.length > 0) {
-    APP.queue.splice(0, APP.currentIdx + 1);
+  // Удаляем сыгранный трек
+  if (APP.currentIdx >= 0) {
+    APP.queue.splice(APP.currentIdx, 1);
     APP.currentIdx = -1;
+    saveState();
   }
   if (APP.queue.length === 0) {
-    saveState(); setOverlay('qr'); updateBarUI(); return;
+    setOverlay('qr'); updateBarUI(); return;
   }
-  // Следующий трек — первый в очереди
+  // Следующий трек — теперь первый в очереди
   const track = APP.queue[0];
   const guestLabel = track.guestName || (track.guestId === 'admin' ? 'бар' : ('#' + (track.guestId || '?').slice(-6).toUpperCase()));
   document.getElementById('overlay-title').textContent = track.title;
