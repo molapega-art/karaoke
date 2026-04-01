@@ -314,6 +314,29 @@
     display: none; flex-direction: column;
   }
   #bar-screen.active { display: flex; }
+  /* Fullscreen на #bar-screen */
+  #bar-screen:fullscreen,
+  #bar-screen:-webkit-full-screen {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    position: relative !important;
+    inset: auto !important;
+  }
+  #bar-screen:fullscreen #player-wrapper,
+  #bar-screen:-webkit-full-screen #player-wrapper {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    position: relative !important;
+  }
+  #bar-screen:fullscreen #bar-controls,
+  #bar-screen:-webkit-full-screen #bar-controls {
+    flex-shrink: 0 !important;
+    display: flex !important;
+    height: auto !important;
+    min-height: 52px !important;
+  }
 
   #player-wrapper { position: relative; flex: 1; background: #000; overflow: hidden; }
 
@@ -1682,7 +1705,7 @@ function updateBarUI() {
 }
 
 function requestFullscreen() {
-  const el = document.documentElement;
+  const el = document.getElementById('bar-screen');
   if (el.requestFullscreen) el.requestFullscreen();
   else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
