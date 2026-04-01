@@ -383,7 +383,19 @@
     border-top: 1px solid var(--border);
     padding: 13px 22px;
     display: flex; align-items: center; gap: 12px; flex-shrink: 0;
-    position: relative; z-index: 30;
+    position: relative; z-index: 100;
+  }
+  /* В fullscreen панель остаётся видимой */
+  :fullscreen #bar-screen,
+  :-webkit-full-screen #bar-screen {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  :fullscreen #bar-controls,
+  :-webkit-full-screen #bar-controls {
+    display: flex !important;
+    flex-shrink: 0 !important;
+    z-index: 100 !important;
   }
   .bar-logo {
     font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 900;
@@ -1578,7 +1590,7 @@ function playNext() {
   stopCountdown();
   setOverlay('none');
   hideEmbedBlocked();
-  // Удаляем сыгранный трек (currentIdx = 0 после сдвига)
+  // Удаляем сыгранный трек перед запуском следующего
   if (APP.currentIdx >= 0) {
     APP.queue.splice(APP.currentIdx, 1);
     APP.currentIdx = -1;
@@ -1586,27 +1598,29 @@ function playNext() {
   if (APP.queue.length === 0) {
     saveState(); setOverlay('qr'); updateBarUI(); return;
   }
+  // Следующий трек теперь на месте 0
   APP.currentIdx = 0;
   updateBarUI();
+  saveState(); // сохраняем сразу чтобы очередь обновилась
   if (APP.playerReady) {
     ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     startPlaybackTimeout();
   }
-  saveState();
 }
 
 function onTrackEnded() {
-  // Удаляем сыгранный трек
-  if (APP.currentIdx >= 0) {
-    APP.queue.splice(APP.currentIdx, 1);
-    APP.currentIdx = -1;
-    saveState();
-  }
-  if (APP.queue.length === 0) {
+  const next = APP.currentIdx + 1;
+  if (next >= APP.queue.length) {
+    // Удаляем последний трек
+    if (APP.currentIdx >= 0) {
+      APP.queue.splice(APP.currentIdx, 1);
+      APP.currentIdx = -1;
+      saveState();
+    }
     setOverlay('qr'); updateBarUI(); return;
   }
-  // Следующий трек — теперь первый в очереди
-  const track = APP.queue[0];
+  // Показываем заставку со следующим треком (трек ещё в очереди)
+  const track = APP.queue[next];
   const guestLabel = track.guestName || (track.guestId === 'admin' ? 'бар' : ('#' + (track.guestId || '?').slice(-6).toUpperCase()));
   document.getElementById('overlay-title').textContent = track.title;
   document.getElementById('overlay-guest').textContent = '🎤 ' + guestLabel;
@@ -1738,14 +1752,16 @@ dbRef.on('value', (snapshot) => {
 
     // Реагируем только если бар запущен и плеер готов
     if (APP.playerReady && APP.barStarted) {
-      const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
-        (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
+      const state = ytPlayer && ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -2;
+      const isActive = state === 1 || state === 3 || state === 2; // playing/buffering/paused
+      const wasEmpty = prevLen === 0 && APP.queue.length > 0;
 
-      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
-        // Ничего не играет и есть треки — запускаем (например гость добавил пока бар на QR)
+      // Запускаем только если очередь была пуста и появились новые треки
+      // (гость добавил пока бар показывал QR)
+      if (wasEmpty && !isActive && APP.currentIdx === -1) {
         barCheckAndPlay();
       }
-      // Если играет — не трогаем, playNext/onTrackEnded сами управляют очередью
+      // Во всех остальных случаях не вмешиваемся — плеер сам управляет
     }
   }
 
