@@ -1263,7 +1263,13 @@ function adminClearAll() {
 // ═══════════════════════════════════════════
 // ПОИСК (общий для гостя и админа) — YouTube Data API v3
 // ═══════════════════════════════════════════
-const YT_KEY = 'AIzaSyDNEZRxoXtbSQBPhorshSq6suESQMgzp3k';
+// Два ключа — если один исчерпан, автоматически переключается на второй
+const YT_KEYS = [
+  'AIzaSyAoym_16wOyb7jCocgEkZaPiEeu0XTCiHk',  // KARAOKE-FIX
+  'AIzaSyDNEZRxoXtbSQBPhorshSq6suESQMgzp3k',  // telegram-bot-docs (резерв)
+];
+let ytKeyIdx = 0;
+function YT_KEY() { return YT_KEYS[ytKeyIdx]; }
 
 function searchIds(role) {
   return {
@@ -1275,6 +1281,9 @@ function searchIds(role) {
   };
 }
 
+// Кэш поисковых запросов — хранится в памяти, сбрасывается при перезагрузке
+const SEARCH_CACHE = {};
+
 async function doSearch(role) {
   const ids = searchIds(role);
   const query = document.getElementById(ids.input).value.trim();
@@ -1285,37 +1294,55 @@ async function doSearch(role) {
   document.getElementById(ids.success).innerHTML = '';
 
   const area = document.getElementById(ids.area);
-  area.innerHTML = `<div class="loading-state"><div class="spinner"></div>Ищем на YouTube...</div>`;
+  const cacheKey = query.toLowerCase().trim();
+
+  // Проверяем кэш
+  if (SEARCH_CACHE[cacheKey]) {
+    APP.search[role].results = SEARCH_CACHE[cacheKey];
+    renderSearchResults(role);
+    return;
+  }
+
+  area.innerHTML = `<div class="loading-state"><div class="spinner"></div>${t('searchingText')}</div>`;
   document.getElementById(ids.btn).disabled = true;
 
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${YT_KEY}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${YT_KEY()}`;
     const res = await fetch(url);
     const data = await res.json();
     if (!res.ok) {
-      const errMsg = data?.error?.message || res.status;
-      throw new Error(String(errMsg));
+      const errMsg = data?.error?.message || '';
+      // Если лимит исчерпан — переключаемся на следующий ключ
+      if (data?.error?.errors?.[0]?.reason === 'quotaExceeded' && ytKeyIdx < YT_KEYS.length - 1) {
+        ytKeyIdx++;
+        document.getElementById(ids.btn).disabled = false;
+        return doSearch(role); // повторяем с новым ключом
+      }
+      throw new Error(errMsg || String(res.status));
     }
     const items = data.items || [];
     if (!items.length) {
-      area.innerHTML = `<div class="loading-state">Ничего не найдено. Попробуйте другой запрос.</div>`;
+      area.innerHTML = `<div class="loading-state">${t('notFoundText')}</div>`;
       return;
     }
-    APP.search[role].results = items.slice(0, 15).map(v => ({
+    const results = items.slice(0, 15).map(v => ({
       id:      v.id.videoId,
       title:   v.snippet.title,
       channel: v.snippet.channelTitle,
       thumb:   v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url || '',
-    }))
+    }));
+    // Сохраняем в кэш
+    SEARCH_CACHE[cacheKey] = results;
+    APP.search[role].results = results;
     renderSearchResults(role);
   } catch(err) {
     area.innerHTML = `<div class="loading-state">
-      Не удалось выполнить поиск.<br>
-      <small style="font-size:11px;color:#ff6b6b;margin-top:8px;display:block">${err.message || 'Проверьте интернет'}</small>
+      ${t('searchErrorText')}<br>
+      <small style="font-size:11px;color:#ff6b6b;margin-top:8px;display:block">${err.message || ''}</small>
     </div>`;
     const ml = document.createElement('button');
     ml.className = 'manual-link';
-    ml.textContent = 'Вставить ссылку YouTube вручную';
+    ml.textContent = t('manualBtn');
     ml.onclick = () => showManualInput(role);
     area.appendChild(ml);
   } finally {
