@@ -1658,6 +1658,18 @@ function requestFullscreen() {
   else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
 
+// Скрываем панель управления в полноэкранном режиме
+document.addEventListener('fullscreenchange', () => {
+  const controls = document.getElementById('bar-controls');
+  if (!controls) return;
+  controls.style.display = document.fullscreenElement ? 'none' : 'flex';
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  const controls = document.getElementById('bar-controls');
+  if (!controls) return;
+  controls.style.display = document.webkitFullscreenElement ? 'none' : 'flex';
+});
+
 // ═══════════════════════════════════════════
 // QR-КОД
 // ═══════════════════════════════════════════
