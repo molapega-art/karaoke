@@ -1979,15 +1979,18 @@ dbRef.on('value', (snapshot) => {
     updateBarUI();
 
     if (APP.barStarted) {
-      // Если плеер не готов — попробуем переинициализировать
       if (!APP.playerReady && ytPlayer === null) {
         loadYTAPI();
       } else if (APP.playerReady) {
-        const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
-          (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
+        const ps = ytPlayer && ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -2;
+        // Реально играет или буферизует
+        const isActive = ps === 1 || ps === 2 || ps === 3;
+        // Идёт заставка между треками
+        const inCountdown = !!APP.countdownTimer;
 
-        // Запускаем только если ничего не играет и currentIdx = -1
-        if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
+        // Запускаем ТОЛЬКО если плеер реально стоит И нет заставки
+        // НЕ смотрим на currentIdx — он может быть -1 пока трек ещё играет
+        if (!isActive && !inCountdown && APP.queue.length > 0) {
           barCheckAndPlay();
         }
       }
