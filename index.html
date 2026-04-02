@@ -505,6 +505,174 @@
     #bar-controls { padding: 10px 14px; }
     .admin-stats { gap: 8px; }
   }
+
+  /* ═══ ЭКРАН ОЧЕРЕДИ ═══ */
+  #queue-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 20%, rgba(214,58,255,0.1) 0%, transparent 60%);
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  #queue-screen.active { display: flex; }
+
+  .qs-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .qs-logo {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(20px, 3vw, 32px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--neon), var(--neon2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  .qs-body {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 28px 40px; gap: 20px; overflow: hidden;
+  }
+
+  .qs-current {
+    background: var(--surface);
+    border: 2px solid var(--neon);
+    border-radius: 20px;
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 0 40px rgba(214,58,255,0.15);
+  }
+
+  .qs-current-thumb {
+    width: clamp(80px, 12vw, 140px);
+    aspect-ratio: 16/9;
+    border-radius: 10px;
+    object-fit: cover; flex-shrink: 0; background: var(--card);
+  }
+
+  .qs-current-info { flex: 1; overflow: hidden; }
+
+  .qs-current-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--neon); color: white;
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(9px, 1vw, 11px); font-weight: 700;
+    letter-spacing: 2px; padding: 4px 12px;
+    border-radius: 20px; margin-bottom: 8px;
+  }
+
+  .qs-current-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(16px, 2.5vw, 30px);
+    font-weight: 900; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  .qs-current-guest {
+    font-size: clamp(12px, 1.5vw, 18px);
+    color: var(--neon3); margin-top: 6px;
+  }
+
+  .qs-pulse {
+    width: clamp(12px, 1.5vw, 18px); height: clamp(12px, 1.5vw, 18px);
+    background: var(--neon); border-radius: 50%; flex-shrink: 0;
+    animation: pulse 1.4s infinite; box-shadow: 0 0 12px var(--neon);
+  }
+
+
+
+  .qs-next-list {
+    display: flex; flex-direction: column;
+    gap: 10px; overflow-y: auto; flex: 1;
+  }
+
+  .qs-next-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+  }
+
+  .qs-next-num {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(14px, 2vw, 22px);
+    color: var(--muted); min-width: 28px; text-align: center; flex-shrink: 0;
+  }
+
+  .qs-next-thumb {
+    width: clamp(56px, 8vw, 90px); aspect-ratio: 16/9;
+    border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--card);
+  }
+
+  .qs-next-info { flex: 1; overflow: hidden; }
+
+  .qs-next-title {
+    font-size: clamp(14px, 2vw, 24px);
+    font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .qs-next-guest {
+    font-size: clamp(11px, 1.2vw, 16px);
+    color: var(--muted); margin-top: 3px;
+  }
+
+  .qs-tagline {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(9px, 1vw, 12px);
+    letter-spacing: 4px; color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .qs-section-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(9px, 1vw, 11px);
+    letter-spacing: 4px; color: var(--muted);
+    text-transform: uppercase; flex-shrink: 0;
+  }
+
+  .qs-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px; text-align: center; padding: 40px;
+  }
+
+  .qs-empty-icon { font-size: clamp(60px, 10vw, 100px); line-height: 1; }
+
+  .qs-empty-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(24px, 4vw, 48px); font-weight: 900;
+    background: linear-gradient(135deg, var(--neon), var(--neon2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    line-height: 1;
+  }
+
+  .qs-empty-sub {
+    font-size: clamp(14px, 1.8vw, 22px);
+    color: var(--muted); max-width: 480px; line-height: 1.6;
+  }
+
+  .qs-footer {
+    padding: 14px 28px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .qs-footer a {
+    font-family: 'Onest', sans-serif;
+    font-size: clamp(11px, 1.2vw, 14px);
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: color 0.2s;
+  }
+
+  .qs-footer a:hover { color: var(--neon3); }
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -806,6 +974,13 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════
+     ЭКРАН ОЧЕРЕДИ (?queue=SECRET)
+════════════════════════════════════════ -->
+<div id="queue-screen">
+  <!-- Заполняется через renderQueueScreen() -->
+</div>
+
 <!-- 403 -->
 <div id="forbidden-screen">
   <h1>Нет доступа</h1>
@@ -868,9 +1043,10 @@ const APP = {
 // ═══════════════════════════════════════════
 // РОУТИНГ
 // ═══════════════════════════════════════════
-const params    = new URLSearchParams(window.location.search);
-const barToken  = params.get('bar');
-const adminToken= params.get('admin');
+const params     = new URLSearchParams(window.location.search);
+const barToken   = params.get('bar');
+const adminToken = params.get('admin');
+const queueToken = params.get('queue');
 
 // ═══════════════════════════════════════════
 // ПЕРЕВОДЫ
@@ -1058,6 +1234,8 @@ function boot() {
     barToken === BAR_SECRET ? showBar() : showForbidden();
   } else if (adminToken !== null) {
     adminToken === ADMIN_SECRET ? showAdmin() : showForbidden();
+  } else if (queueToken !== null) {
+    queueToken === BAR_SECRET ? showQueueScreen() : showForbidden();
   } else {
     showClient();
   }
@@ -1113,8 +1291,16 @@ function isGuestBlocked() {
 function showBar() {
   loadState();
   document.getElementById('bar-screen').classList.add('active');
-  document.getElementById('start-overlay').style.display = 'flex';
-  initBar();
+  // Если бар уже был запущен в этой сессии — пропускаем стартовый экран
+  if (sessionStorage.getItem('bar_started') === '1') {
+    APP.barStarted = true;
+    document.getElementById('start-overlay').style.display = 'none';
+    initBar();
+    loadYTAPI();
+  } else {
+    document.getElementById('start-overlay').style.display = 'flex';
+    initBar();
+  }
 }
 
 function showAdmin() {
@@ -1487,6 +1673,7 @@ function initBar() {
 window.startBar = function startBar() {
   if (APP.barStarted) return; // защита от двойного вызова
   APP.barStarted = true;
+  sessionStorage.setItem('bar_started', '1');
   document.getElementById('start-overlay').style.display = 'none';
   loadYTAPI();
 }
@@ -1523,6 +1710,7 @@ window.onDragEnd        = onDragEnd;
 window.hideEmbedBlocked = hideEmbedBlocked;
 window.resetGuests       = resetGuests;
 window.setLang           = setLang;
+window.showQueueScreen   = showQueueScreen;
 window.startBar         = startBar;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
@@ -1777,22 +1965,16 @@ dbRef.on('value', (snapshot) => {
     APP.queue = incomingQueue;
     APP.currentIdx = data.currentIdx ?? -1;
   } else {
-    // Бар запущен — обновляем только новые треки в конце очереди
-    // Не трогаем текущий трек и не меняем currentIdx
-    const currentLen = APP.queue.length;
-    const incomingLen = incomingQueue.length;
-    if (incomingLen > currentLen) {
-      // Добавились новые треки — добавляем только их в конец
-      APP.queue = APP.queue.concat(incomingQueue.slice(currentLen));
-    } else if (incomingLen < currentLen) {
-      // Треки удалили (например гость удалил свою песню или админ удалил)
-      // Обновляем только если трек не текущий
-      APP.queue = incomingQueue;
-      if (APP.currentIdx >= APP.queue.length) {
-        APP.currentIdx = APP.queue.length - 1;
-      }
+    // Бар запущен — НЕ перезаписываем очередь из Firebase
+    // Плеер сам управляет APP.queue и APP.currentIdx
+    // Единственное исключение — если кто-то добавил трек в конец
+    // (длина увеличилась) — просто добавляем новые треки
+    if (incomingQueue.length > APP.queue.length) {
+      const newTracks = incomingQueue.slice(APP.queue.length);
+      APP.queue = APP.queue.concat(newTracks);
     }
-    // currentIdx не трогаем — плеер управляет сам
+    // Если треки удалили — не трогаем сейчас, 
+    // adminDelete уже обновил APP.queue напрямую
   }
 
   // Обновляем UI в зависимости от роли
@@ -1801,6 +1983,9 @@ dbRef.on('value', (snapshot) => {
   }
   if (document.getElementById('admin-screen').classList.contains('active')) {
     renderAdminQueue();
+  }
+  if (document.getElementById('queue-screen').classList.contains('active')) {
+    renderQueueScreen();
   }
   if (document.getElementById('bar-screen').classList.contains('active')) {
     updateBarUI();
@@ -1951,6 +2136,83 @@ function resetGuests() {
   db.ref('karaoke_guests').remove();
   ALL_GUESTS = {};
   renderGuestsList();
+}
+
+// ═══════════════════════════════════════════
+// ЭКРАН ОЧЕРЕДИ
+// ═══════════════════════════════════════════
+function showQueueScreen() {
+  loadState();
+  document.getElementById('queue-screen').classList.add('active');
+  renderQueueScreen();
+  // Слушаем изменения Firebase
+  dbRef.on('value', () => renderQueueScreen());
+}
+
+function renderQueueScreen() {
+  const el = document.getElementById('queue-screen');
+  const queue = APP.queue;
+  const idx = APP.currentIdx;
+  const current = idx >= 0 ? queue[idx] : null;
+  const next = queue.slice(idx >= 0 ? idx + 1 : 0);
+
+  const guestLabel = (track) => {
+    if (!track) return '';
+    return track.guestName || (track.guestId === 'admin' ? 'bar' : track.guestId ? track.guestId.slice(-6).toUpperCase() : '');
+  };
+
+  if (!current && next.length === 0) {
+    el.innerHTML = `
+      <div class="qs-header">
+        <div class="qs-logo">FIX BAR</div>
+        <div class="qs-tagline">KARAOKE NIGHT · TBILISI</div>
+      </div>
+      <div class="qs-empty">
+        <div class="qs-empty-icon">🎤</div>
+        <div class="qs-empty-title">The stage is yours</div>
+        <div class="qs-empty-sub">No songs in queue yet — be the first to perform!</div>
+      </div>
+      <div class="qs-footer">
+        <a href="https://maps.app.goo.gl/SytedcHVUmoXXxWm8" target="_blank">
+          📍 14 Zviad Gamsakhurdia Embankment, Tbilisi
+        </a>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="qs-header">
+      <div class="qs-logo">FIX BAR</div>
+      <div class="qs-tagline">KARAOKE NIGHT · TBILISI${next.length > 0 ? ' · ' + (next.length + (current ? 1 : 0)) + ' SONGS' : ''}</div>
+    </div>
+    <div class="qs-body" style="overflow-y:auto;">
+      ${current ? `
+        <div class="qs-section-label">NOW PLAYING</div>
+        <div class="qs-current">
+          <img class="qs-current-thumb" src="${current.thumb}" onerror="this.style.display='none'">
+          <div class="qs-current-info">
+            <div class="qs-current-badge"><div class="qs-pulse"></div>LIVE</div>
+            <div class="qs-current-title">${esc(current.title)}</div>
+            <div class="qs-current-guest">🎤 ${esc(guestLabel(current))}</div>
+          </div>
+        </div>
+      ` : ''}
+      ${next.length > 0 ? `
+        <div class="qs-section-label" style="margin-top:${current ? '8px' : '0'}">UP NEXT</div>
+        <div class="qs-next-list">
+          ${next.map((track, i) => `
+            <div class="qs-next-item">
+              <div class="qs-next-num">${i + 1}</div>
+              <img class="qs-next-thumb" src="${track.thumb}" onerror="this.style.display='none'">
+              <div class="qs-next-info">
+                <div class="qs-next-title">${esc(track.title)}</div>
+                <div class="qs-next-guest">🎤 ${esc(guestLabel(track))}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>`;
 }
 
 // ═══════════════════════════════════════════
