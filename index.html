@@ -1291,7 +1291,6 @@ function isGuestBlocked() {
 function showBar() {
   loadState();
   document.getElementById('bar-screen').classList.add('active');
-  // Если бар уже был запущен в этой сессии — пропускаем стартовый экран
   if (sessionStorage.getItem('bar_started') === '1') {
     APP.barStarted = true;
     document.getElementById('start-overlay').style.display = 'none';
@@ -1494,6 +1493,7 @@ function adminClearAll() {
   APP.currentIdx = -1;
   saveState();
   APP.lastCmd = 'clear:' + Date.now(); saveState();
+  try { db.ref('karaoke/pending').remove(); } catch(e) {}
   renderAdminQueue();
 }
 
@@ -1643,7 +1643,10 @@ function addToQueue(role) {
   // Проверка блокировки
   if (role === 'client' && isGuestBlocked()) return;
 
-  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар', uid: Date.now().toString(36) + Math.random().toString(36).slice(2,5) });
+  const newTrack = { ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар', uid: Date.now().toString(36) + Math.random().toString(36).slice(2,5) };
+  APP.queue.push(newTrack);
+  // Сохраняем новый трек отдельно — барный экран читает через pendingTracks listener
+  try { db.ref('karaoke/pending/' + newTrack.uid).set(newTrack); } catch(e) {}
   // Регистрируем гостя в истории
   if (role === 'client') registerGuestActivity(GUEST_ID, GUEST_NAME);
   APP.search[role].selected = null;
@@ -1668,6 +1671,27 @@ function addToQueue(role) {
 function initBar() {
   updateBarUI();
   generateQR();
+
+  // Слушаем новые треки через karaoke/pending — единственный способ добавить трек на бар
+  // НЕ трогаем APP.queue напрямую из onValue — только отсюда
+  db.ref('karaoke/pending').on('child_added', (snap) => {
+    const track = snap.val();
+    if (!track || !track.uid) { snap.ref.remove(); return; }
+    // Защита от дублей
+    const already = APP.queue.some(t => t.uid === track.uid);
+    if (!already) {
+      APP.queue.push(track);
+      updateBarUI();
+      saveState();
+      // Запускаем только если QR показан и бар запущен
+      if (APP.barStarted && APP.playerReady && APP.currentIdx === -1) {
+        const s = ytPlayer && ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -2;
+        if (s !== 1 && s !== 3) barCheckAndPlay();
+      }
+    }
+    // Удаляем из pending — трек получен
+    snap.ref.remove();
+  });
 }
 
 window.startBar = function startBar() {
@@ -1800,11 +1824,17 @@ function hideEmbedBlocked() {
 function barCheckAndPlay() {
   if (!APP.playerReady || !APP.barStarted) return;
   if (APP.queue.length === 0) { setOverlay('qr'); return; }
-  // Уже играет — не перезапускаем
-  if (APP.currentIdx >= 0 && ytPlayer && ytPlayer.getPlayerState &&
-      (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3 || ytPlayer.getPlayerState() === 2)) return;
+  // Уже играет или загружается — не перезапускаем
+  if (APP.currentIdx >= 0 && ytPlayer && ytPlayer.getPlayerState) {
+    const s = ytPlayer.getPlayerState();
+    // 1=playing, 2=paused, 3=buffering, -1=unstarted (видео загружено но ещё не пошло)
+    if (s === 1 || s === 2 || s === 3 || s === -1) return;
+  }
+  // Только если currentIdx не установлен — ставим 0
   if (APP.currentIdx < 0 || APP.currentIdx >= APP.queue.length) {
     APP.currentIdx = 0;
+  } else {
+    // currentIdx уже установлен и трек в очереди — не меняем, просто запускаем
   }
   setOverlay('none');
   ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
@@ -1971,22 +2001,9 @@ dbRef.on('value', (snapshot) => {
     // Бар не запущен — берём всё из Firebase как есть
     APP.queue = incomingQueue;
     APP.currentIdx = data.currentIdx ?? -1;
-  } else {
-    // ════════════════════════════════════════════════
-    // БАР ЗАПУЩЕН — плеер управляет APP.queue сам.
-    // Из Firebase берём только новые треки по uid.
-    // uid уникален для каждого добавления, поэтому
-    // повторяющиеся треки корректно добавляются.
-    // ════════════════════════════════════════════════
-    const existingUids = new Set(APP.queue.map(t => t.uid).filter(Boolean));
-    incomingQueue.forEach(track => {
-      if (track.uid && !existingUids.has(track.uid)) {
-        APP.queue.push(track);
-        existingUids.add(track.uid);
-      }
-    });
-    // currentIdx — не трогаем никогда пока бар запущен
   }
+  // Бар запущен — APP.queue живёт локально, не трогаем
+  // Новые треки приходят через отдельный listener на karaoke/addedAt
 
   // Обновляем UI в зависимости от роли
   if (document.getElementById('client-screen').classList.contains('active')) {
@@ -2001,20 +2018,8 @@ dbRef.on('value', (snapshot) => {
   if (document.getElementById('bar-screen').classList.contains('active')) {
     updateBarUI();
 
-    // Реагируем только если бар запущен и плеер готов
-    if (APP.playerReady && APP.barStarted) {
-      const state = ytPlayer && ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -2;
-      const isActive = state === 1 || state === 3 || state === 2; // playing/buffering/paused
-
-      // Запускаем ТОЛЬКО если:
-      // 1. Ничего не играет прямо сейчас
-      // 2. QR-экран показан (currentIdx === -1)
-      // 3. В очереди появились треки
-      // 4. Это реально новые треки (prevLen был 0 или currentIdx был -1 долго)
-      if (!isActive && APP.currentIdx === -1 && APP.queue.length > 0 && prevLen === 0) {
-        barCheckAndPlay();
-      }
-    }
+    // Бар не реагирует на изменения очереди из Firebase
+    // Новые треки приходят через karaoke/pending listener в showBar()
   }
 
   // Команды от админа
