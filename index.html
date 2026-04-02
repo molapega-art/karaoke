@@ -1474,8 +1474,10 @@ function onTrackEnded() {
     APP.queue.splice(0, APP.currentIdx + 1);
     APP.currentIdx = -1;
   }
+  // Сохраняем СРАЗУ — чтобы Firebase не перезаписал APP.queue старыми данными
+  saveState();
   if (APP.queue.length === 0) {
-    saveState(); setOverlay('qr'); updateBarUI(); return;
+    setOverlay('qr'); updateBarUI(); return;
   }
   // Следующий трек — первый в очереди
   const track = APP.queue[0];
