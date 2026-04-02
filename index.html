@@ -1643,7 +1643,7 @@ function addToQueue(role) {
   // Проверка блокировки
   if (role === 'client' && isGuestBlocked()) return;
 
-  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар' });
+  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар', uid: Date.now().toString(36) + Math.random().toString(36).slice(2,5) });
   // Регистрируем гостя в истории
   if (role === 'client') registerGuestActivity(GUEST_ID, GUEST_NAME);
   APP.search[role].selected = null;
@@ -1974,16 +1974,15 @@ dbRef.on('value', (snapshot) => {
   } else {
     // ════════════════════════════════════════════════
     // БАР ЗАПУЩЕН — плеер управляет APP.queue сам.
-    // Firebase используется ТОЛЬКО для добавления
-    // новых треков которых ещё нет в APP.queue.
-    // Сравниваем по ID трека, а не по длине.
+    // Из Firebase берём только новые треки по uid.
+    // uid уникален для каждого добавления, поэтому
+    // повторяющиеся треки корректно добавляются.
     // ════════════════════════════════════════════════
-    const existingIds = new Set(APP.queue.map(t => t.id + '_' + (t.guestId || '')));
+    const existingUids = new Set(APP.queue.map(t => t.uid).filter(Boolean));
     incomingQueue.forEach(track => {
-      const key = track.id + '_' + (track.guestId || '');
-      if (!existingIds.has(key)) {
+      if (track.uid && !existingUids.has(track.uid)) {
         APP.queue.push(track);
-        existingIds.add(key);
+        existingUids.add(track.uid);
       }
     });
     // currentIdx — не трогаем никогда пока бар запущен
