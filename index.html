@@ -1628,22 +1628,31 @@ function playNext() {
   stopCountdown();
   setOverlay('none');
   hideEmbedBlocked();
-  // Удаляем сыгранный трек перед запуском следующего
-  if (APP.currentIdx >= 0) {
+
+  // Удаляем сыгранный трек
+  if (APP.currentIdx >= 0 && APP.queue.length > 0) {
     APP.queue.splice(APP.currentIdx, 1);
     APP.currentIdx = -1;
   }
+
   if (APP.queue.length === 0) {
-    saveState(); setOverlay('qr'); updateBarUI(); return;
+    APP.currentIdx = -1;
+    saveState();
+    setOverlay('qr');
+    updateBarUI();
+    return;
   }
-  // Следующий трек теперь на месте 0
+
+  // Устанавливаем следующий трек и сохраняем всё вместе
   APP.currentIdx = 0;
   updateBarUI();
-  saveState(); // сохраняем сразу чтобы очередь обновилась
+
   if (APP.playerReady) {
     ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     startPlaybackTimeout();
   }
+  // Сохраняем ПОСЛЕ loadVideoById — чтобы Firebase видел консистентное состояние
+  saveState();
 }
 
 function onTrackEnded() {
@@ -1710,17 +1719,7 @@ function requestFullscreen() {
   else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
 
-// Скрываем панель управления в полноэкранном режиме
-document.addEventListener('fullscreenchange', () => {
-  const controls = document.getElementById('bar-controls');
-  if (!controls) return;
-  controls.style.display = document.fullscreenElement ? 'none' : 'flex';
-});
-document.addEventListener('webkitfullscreenchange', () => {
-  const controls = document.getElementById('bar-controls');
-  if (!controls) return;
-  controls.style.display = document.webkitFullscreenElement ? 'none' : 'flex';
-});
+// fullscreenchange — ничего не скрываем, панель должна оставаться видимой
 
 // ═══════════════════════════════════════════
 // QR-КОД
@@ -1792,14 +1791,15 @@ dbRef.on('value', (snapshot) => {
     if (APP.playerReady && APP.barStarted) {
       const state = ytPlayer && ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -2;
       const isActive = state === 1 || state === 3 || state === 2; // playing/buffering/paused
-      const wasEmpty = prevLen === 0 && APP.queue.length > 0;
 
-      // Запускаем только если очередь была пуста и появились новые треки
-      // (гость добавил пока бар показывал QR)
-      if (wasEmpty && !isActive && APP.currentIdx === -1) {
+      // Запускаем ТОЛЬКО если:
+      // 1. Ничего не играет прямо сейчас
+      // 2. QR-экран показан (currentIdx === -1)
+      // 3. В очереди появились треки
+      // 4. Это реально новые треки (prevLen был 0 или currentIdx был -1 долго)
+      if (!isActive && APP.currentIdx === -1 && APP.queue.length > 0 && prevLen === 0) {
         barCheckAndPlay();
       }
-      // Во всех остальных случаях не вмешиваемся — плеер сам управляет
     }
   }
 
