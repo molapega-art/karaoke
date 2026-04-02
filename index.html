@@ -1484,8 +1484,6 @@ function adminPlayNext(i) {
 function adminSkip() {
   APP.lastCmd = 'skip:' + Date.now();
   saveState();
-  // Сразу сбрасываем чтобы следующий saveState не отправил команду повторно
-  setTimeout(() => { APP.lastCmd = ''; saveState(); }, 500);
   renderAdminQueue();
 }
 
@@ -1496,7 +1494,6 @@ function adminClearAll() {
   APP.trackEndedLock = false;
   saveState();
   APP.lastCmd = 'clear:' + Date.now(); saveState();
-  setTimeout(() => { APP.lastCmd = ''; saveState(); }, 500);
 
   renderAdminQueue();
 }
@@ -2004,12 +2001,17 @@ dbRef.on('value', (snapshot) => {
   const cmd = (data.cmd || '').split(':')[0];
   if (cmd && cmd !== lastCmdSeen) {
     lastCmdSeen = data.cmd;
-    if (document.getElementById('bar-screen').classList.contains('active')) {
-      if (cmd === 'skip')  skipTrack();
+    if (document.getElementById('bar-screen').classList.contains('active') && APP.barStarted) {
+      if (cmd === 'skip') {
+        skipTrack();
+        // Сразу стираем команду из Firebase чтобы не выполнилась повторно
+        dbRef.update({ cmd: '' });
+      }
       if (cmd === 'clear') {
         stopCountdown();
         if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
         setOverlay('qr'); updateBarUI();
+        dbRef.update({ cmd: '' });
       }
     }
   }
