@@ -1767,14 +1767,32 @@ dbRef.on('value', (snapshot) => {
   const prevIdx = APP.currentIdx;
   const prevLen = APP.queue.length;
 
-  APP.queue = (data.queue || []).map(item => ({
+  const incomingQueue = (data.queue || []).map(item => ({
     ...item,
     guestId: item.guestId || 'unknown',
   }));
-  // currentIdx обновляем из Firebase только если бар не запущен
-  // иначе плеер сам управляет индексом
+
   if (!APP.barStarted) {
+    // Бар не запущен — берём всё из Firebase
+    APP.queue = incomingQueue;
     APP.currentIdx = data.currentIdx ?? -1;
+  } else {
+    // Бар запущен — обновляем только новые треки в конце очереди
+    // Не трогаем текущий трек и не меняем currentIdx
+    const currentLen = APP.queue.length;
+    const incomingLen = incomingQueue.length;
+    if (incomingLen > currentLen) {
+      // Добавились новые треки — добавляем только их в конец
+      APP.queue = APP.queue.concat(incomingQueue.slice(currentLen));
+    } else if (incomingLen < currentLen) {
+      // Треки удалили (например гость удалил свою песню или админ удалил)
+      // Обновляем только если трек не текущий
+      APP.queue = incomingQueue;
+      if (APP.currentIdx >= APP.queue.length) {
+        APP.currentIdx = APP.queue.length - 1;
+      }
+    }
+    // currentIdx не трогаем — плеер управляет сам
   }
 
   // Обновляем UI в зависимости от роли
