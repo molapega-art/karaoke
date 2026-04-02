@@ -1600,11 +1600,12 @@ dbRef.on('value', (snapshot) => {
       const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
         (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
 
-      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
-        // Ничего не играет и есть треки — запускаем (например гость добавил пока бар на QR)
+      // Запускаем ТОЛЬКО если нет активного таймера заставки
+      // (countdownTimer активен = идёт 10-секундный отсчёт, playNext сам запустит трек)
+      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1 && !APP.countdownTimer) {
         barCheckAndPlay();
       }
-      // Если играет — не трогаем, playNext/onTrackEnded сами управляют очередью
+      // Если играет или идёт заставка — не трогаем
     }
   }
 
