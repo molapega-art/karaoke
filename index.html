@@ -1817,44 +1817,51 @@ function playNext() {
   setOverlay('none');
   hideEmbedBlocked();
 
-  // Удаляем сыгранный трек
+  // Удаляем сыгранный трек и сразу устанавливаем следующий
+  // Всё в одной операции — Firebase никогда не видит пустую очередь
   if (APP.currentIdx >= 0 && APP.queue.length > 0) {
     APP.queue.splice(APP.currentIdx, 1);
-    APP.currentIdx = -1;
   }
 
   if (APP.queue.length === 0) {
     APP.currentIdx = -1;
-    saveState();
+    saveState(); // очередь реально пуста — сохраняем
     setOverlay('qr');
     updateBarUI();
     return;
   }
 
-  // Устанавливаем следующий трек и сохраняем всё вместе
+  // Следующий трек теперь на месте 0 (после splice)
   APP.currentIdx = 0;
   updateBarUI();
 
+  // Загружаем видео
   if (APP.playerReady) {
     ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     startPlaybackTimeout();
   }
-  // Сохраняем ПОСЛЕ loadVideoById — чтобы Firebase видел консистентное состояние
+
+  // Сохраняем с уже установленным currentIdx=0 и непустой очередью
+  // Firebase никогда не увидит промежуточное состояние
   saveState();
 }
 
 function onTrackEnded() {
+  // НЕ удаляем трек здесь — только показываем заставку
+  // Удаление происходит в playNext() чтобы не создавать промежуточное пустое состояние
   const next = APP.currentIdx + 1;
   if (next >= APP.queue.length) {
-    // Удаляем последний трек
+    // Следующего нет — показываем QR после таймера
+    setOverlay('qr'); updateBarUI();
+    // Удаляем последний трек только после показа QR
     if (APP.currentIdx >= 0) {
       APP.queue.splice(APP.currentIdx, 1);
       APP.currentIdx = -1;
       saveState();
     }
-    setOverlay('qr'); updateBarUI(); return;
+    return;
   }
-  // Показываем заставку со следующим треком (трек ещё в очереди)
+  // Показываем заставку со следующим треком (текущий трек ЕЩЁ в очереди)
   const track = APP.queue[next];
   const guestLabel = track.guestName || (track.guestId === 'admin' ? 'бар' : ('#' + (track.guestId || '?').slice(-6).toUpperCase()));
   document.getElementById('overlay-title').textContent = track.title;
