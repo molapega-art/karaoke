@@ -1141,7 +1141,12 @@ function adminClearAll() {
 // ═══════════════════════════════════════════
 // ПОИСК (общий для гостя и админа) — YouTube Data API v3
 // ═══════════════════════════════════════════
-const YT_KEY = 'AIzaSyDNEZRxoXtbSQBPhorshSq6suESQMgzp3k';
+const YT_KEYS = [
+  'AIzaSyAoym_16wOyb7jCocgEkZaPiEeu0XTCiHk',
+  'AIzaSyDNEZRxoXtbSQBPhorshSq6suESQMgzp3k',
+];
+let ytKeyIdx = 0;
+function YT_KEY() { return YT_KEYS[ytKeyIdx]; }
 
 function searchIds(role) {
   return {
