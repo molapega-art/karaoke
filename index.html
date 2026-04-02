@@ -1120,12 +1120,10 @@ function adminPlayNext(i) {
 
 // Глобальный пропуск из админки
 function adminSkip() {
+  // Отправляем ТОЛЬКО команду в Firebase — бар сам обработает через onValue
+  // НЕ вызываем skipTrack() напрямую — иначе будет двойной пропуск
+  APP.lastCmd = 'skip:' + Date.now();
   saveState();
-  // Сигнал бару через localStorage
-  APP.lastCmd = 'skip:' + Date.now(); saveState();
-  // Если открыт бар в этой вкладке — вызвать напрямую
-  if (typeof skipTrack === 'function' &&
-      document.getElementById('bar-screen').classList.contains('active')) skipTrack();
   renderAdminQueue();
 }
 
