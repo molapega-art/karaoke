@@ -1474,10 +1474,8 @@ function onTrackEnded() {
     APP.queue.splice(0, APP.currentIdx + 1);
     APP.currentIdx = -1;
   }
-  // Сохраняем СРАЗУ — чтобы Firebase не перезаписал APP.queue старыми данными
-  saveState();
   if (APP.queue.length === 0) {
-    setOverlay('qr'); updateBarUI(); return;
+    saveState(); setOverlay('qr'); updateBarUI(); return;
   }
   // Следующий трек — первый в очереди
   const track = APP.queue[0];
@@ -1488,11 +1486,13 @@ function onTrackEnded() {
   setOverlay('track');
   let t = 10;
   document.getElementById('overlay-countdown').textContent = t;
+  APP.inCountdown = true;
   APP.countdownTimer = setInterval(() => {
     t--;
     document.getElementById('overlay-countdown').textContent = t;
     if (t <= 0) { stopCountdown(); playNext(); }
   }, 1000);
+  saveState();
 }
 
 // Legacy aliases — используем setOverlay()
@@ -1501,6 +1501,7 @@ function showQR()      { if(typeof setOverlay==='function') setOverlay('qr'); }
 function hideQR()      { const el=document.getElementById('qr-overlay'); if(el) el.style.display='none'; }
 function stopCountdown() {
   if (APP.countdownTimer) { clearInterval(APP.countdownTimer); APP.countdownTimer = null; }
+  APP.inCountdown = false;
 }
 
 function skipTrack() { stopCountdown(); setOverlay('none'); onTrackEnded(); }
@@ -1604,7 +1605,8 @@ dbRef.on('value', (snapshot) => {
 
       // Запускаем ТОЛЬКО если нет активного таймера заставки
       // (countdownTimer активен = идёт 10-секундный отсчёт, playNext сам запустит трек)
-      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1 && !APP.countdownTimer) {
+      // Запускаем только если нет заставки между треками
+      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1 && !APP.inCountdown && !APP.countdownTimer) {
         barCheckAndPlay();
       }
       // Если играет или идёт заставка — не трогаем
