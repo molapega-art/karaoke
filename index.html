@@ -1815,6 +1815,7 @@ function barCheckAndPlay() {
 }
 
 function playNext() {
+  APP.trackEndedLock = false; // сбрасываем lock когда начинаем следующий
   stopCountdown();
   setOverlay('none');
   hideEmbedBlocked();
@@ -1838,6 +1839,11 @@ function playNext() {
 }
 
 function onTrackEnded() {
+  // Защита от двойного вызова
+  if (APP.trackEndedLock) return;
+  APP.trackEndedLock = true;
+  setTimeout(() => { APP.trackEndedLock = false; }, 15000);
+
   // Удаляем текущий трек
   if (APP.currentIdx >= 0 && APP.queue.length > 0) {
     APP.queue.splice(0, APP.currentIdx + 1);
