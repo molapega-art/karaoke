@@ -1491,6 +1491,7 @@ function adminClearAll() {
   if (!confirm('Очистить всю очередь? Это остановит воспроизведение.')) return;
   APP.queue = [];
   APP.currentIdx = -1;
+  APP.trackEndedLock = false;
   saveState();
   APP.lastCmd = 'clear:' + Date.now(); saveState();
 
@@ -1881,6 +1882,7 @@ function skipTrack() { stopCountdown(); setOverlay('none'); onTrackEnded(); }
 function clearQueue() {
   if (!confirm('Очистить всю очередь?')) return;
   APP.queue = []; APP.currentIdx = -1;
+  APP.trackEndedLock = false; // сбрасываем lock чтобы следующие треки запускались
   stopCountdown();
   if (ytPlayer && APP.playerReady) ytPlayer.stopVideo();
   setOverlay('qr'); updateBarUI(); saveState();
@@ -1976,14 +1978,18 @@ dbRef.on('value', (snapshot) => {
   if (document.getElementById('bar-screen').classList.contains('active')) {
     updateBarUI();
 
-    if (APP.playerReady && APP.barStarted) {
-      const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
-        (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
+    if (APP.barStarted) {
+      // Если плеер не готов — попробуем переинициализировать
+      if (!APP.playerReady && ytPlayer === null) {
+        loadYTAPI();
+      } else if (APP.playerReady) {
+        const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
+          (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
 
-      // Запускаем только если ничего не играет и currentIdx = -1
-      // (бар на QR-экране, пришли новые треки)
-      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
-        barCheckAndPlay();
+        // Запускаем только если ничего не играет и currentIdx = -1
+        if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
+          barCheckAndPlay();
+        }
       }
     }
   }
