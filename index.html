@@ -1802,17 +1802,11 @@ function hideEmbedBlocked() {
 function barCheckAndPlay() {
   if (!APP.playerReady || !APP.barStarted) return;
   if (APP.queue.length === 0) { setOverlay('qr'); return; }
-  // Уже играет или загружается — не перезапускаем
-  if (APP.currentIdx >= 0 && ytPlayer && ytPlayer.getPlayerState) {
-    const s = ytPlayer.getPlayerState();
-    // 1=playing, 2=paused, 3=buffering, -1=unstarted (видео загружено но ещё не пошло)
-    if (s === 1 || s === 2 || s === 3 || s === -1) return;
-  }
-  // Только если currentIdx не установлен — ставим 0
+  // Уже играет — не перезапускаем
+  if (APP.currentIdx >= 0 && ytPlayer && ytPlayer.getPlayerState &&
+      (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3 || ytPlayer.getPlayerState() === 2)) return;
   if (APP.currentIdx < 0 || APP.currentIdx >= APP.queue.length) {
     APP.currentIdx = 0;
-  } else {
-    // currentIdx уже установлен и трек в очереди — не меняем, просто запускаем
   }
   setOverlay('none');
   ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
