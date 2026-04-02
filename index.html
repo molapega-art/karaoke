@@ -1961,20 +1961,25 @@ dbRef.on('value', (snapshot) => {
   }));
 
   if (!APP.barStarted) {
-    // Бар не запущен — берём всё из Firebase
+    // Бар не запущен — берём всё из Firebase как есть
     APP.queue = incomingQueue;
     APP.currentIdx = data.currentIdx ?? -1;
   } else {
-    // Бар запущен — НЕ перезаписываем очередь из Firebase
-    // Плеер сам управляет APP.queue и APP.currentIdx
-    // Единственное исключение — если кто-то добавил трек в конец
-    // (длина увеличилась) — просто добавляем новые треки
-    if (incomingQueue.length > APP.queue.length) {
-      const newTracks = incomingQueue.slice(APP.queue.length);
-      APP.queue = APP.queue.concat(newTracks);
-    }
-    // Если треки удалили — не трогаем сейчас, 
-    // adminDelete уже обновил APP.queue напрямую
+    // ════════════════════════════════════════════════
+    // БАР ЗАПУЩЕН — плеер управляет APP.queue сам.
+    // Firebase используется ТОЛЬКО для добавления
+    // новых треков которых ещё нет в APP.queue.
+    // Сравниваем по ID трека, а не по длине.
+    // ════════════════════════════════════════════════
+    const existingIds = new Set(APP.queue.map(t => t.id + '_' + (t.guestId || '')));
+    incomingQueue.forEach(track => {
+      const key = track.id + '_' + (track.guestId || '');
+      if (!existingIds.has(key)) {
+        APP.queue.push(track);
+        existingIds.add(key);
+      }
+    });
+    // currentIdx — не трогаем никогда пока бар запущен
   }
 
   // Обновляем UI в зависимости от роли
@@ -2212,6 +2217,11 @@ function renderQueueScreen() {
           `).join('')}
         </div>
       ` : ''}
+    </div>
+    <div class="qs-footer">
+      <a href="https://maps.app.goo.gl/SytedcHVUmoXXxWm8" target="_blank">
+        📍 14 Zviad Gamsakhurdia Embankment, Tbilisi
+      </a>
     </div>`;
 }
 
