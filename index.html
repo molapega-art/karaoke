@@ -1493,7 +1493,7 @@ function adminClearAll() {
   APP.currentIdx = -1;
   saveState();
   APP.lastCmd = 'clear:' + Date.now(); saveState();
-  try { db.ref('karaoke/pending').remove(); } catch(e) {}
+
   renderAdminQueue();
 }
 
@@ -1643,10 +1643,7 @@ function addToQueue(role) {
   // Проверка блокировки
   if (role === 'client' && isGuestBlocked()) return;
 
-  const newTrack = { ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар', uid: Date.now().toString(36) + Math.random().toString(36).slice(2,5) };
-  APP.queue.push(newTrack);
-  // Сохраняем новый трек отдельно — барный экран читает через pendingTracks listener
-  try { db.ref('karaoke/pending/' + newTrack.uid).set(newTrack); } catch(e) {}
+  APP.queue.push({ ...selected, guestId: role === 'client' ? GUEST_ID : 'admin', guestName: role === 'client' ? GUEST_NAME : 'бар' });
   // Регистрируем гостя в истории
   if (role === 'client') registerGuestActivity(GUEST_ID, GUEST_NAME);
   APP.search[role].selected = null;
@@ -1672,26 +1669,7 @@ function initBar() {
   updateBarUI();
   generateQR();
 
-  // Слушаем новые треки через karaoke/pending — единственный способ добавить трек на бар
-  // НЕ трогаем APP.queue напрямую из onValue — только отсюда
-  db.ref('karaoke/pending').on('child_added', (snap) => {
-    const track = snap.val();
-    if (!track || !track.uid) { snap.ref.remove(); return; }
-    // Защита от дублей
-    const already = APP.queue.some(t => t.uid === track.uid);
-    if (!already) {
-      APP.queue.push(track);
-      updateBarUI();
-      saveState();
-      // Запускаем только если QR показан и бар запущен
-      if (APP.barStarted && APP.playerReady && APP.currentIdx === -1) {
-        const s = ytPlayer && ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -2;
-        if (s !== 1 && s !== 3) barCheckAndPlay();
-      }
-    }
-    // Удаляем из pending — трек получен
-    snap.ref.remove();
-  });
+
 }
 
 window.startBar = function startBar() {
@@ -1846,53 +1824,36 @@ function playNext() {
   stopCountdown();
   setOverlay('none');
   hideEmbedBlocked();
-
-  // Удаляем сыгранный трек и сразу устанавливаем следующий
-  // Всё в одной операции — Firebase никогда не видит пустую очередь
+  // Удаляем уже сыгранный трек из очереди
   if (APP.currentIdx >= 0 && APP.queue.length > 0) {
-    APP.queue.splice(APP.currentIdx, 1);
-  }
-
-  if (APP.queue.length === 0) {
+    APP.queue.splice(0, APP.currentIdx + 1);
     APP.currentIdx = -1;
-    saveState(); // очередь реально пуста — сохраняем
-    setOverlay('qr');
-    updateBarUI();
-    return;
   }
-
-  // Следующий трек теперь на месте 0 (после splice)
+  if (APP.queue.length === 0) {
+    saveState(); setOverlay('qr'); updateBarUI(); return;
+  }
+  // Следующий трек теперь первый в очереди
   APP.currentIdx = 0;
   updateBarUI();
-
-  // Загружаем видео
   if (APP.playerReady) {
     ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
     startPlaybackTimeout();
   }
-
-  // Сохраняем с уже установленным currentIdx=0 и непустой очередью
-  // Firebase никогда не увидит промежуточное состояние
+  // Сохраняем ПОСЛЕ загрузки — чтобы Firebase не увидел пустую очередь
   saveState();
 }
 
 function onTrackEnded() {
-  // НЕ удаляем трек здесь — только показываем заставку
-  // Удаление происходит в playNext() чтобы не создавать промежуточное пустое состояние
-  const next = APP.currentIdx + 1;
-  if (next >= APP.queue.length) {
-    // Следующего нет — показываем QR после таймера
-    setOverlay('qr'); updateBarUI();
-    // Удаляем последний трек только после показа QR
-    if (APP.currentIdx >= 0) {
-      APP.queue.splice(APP.currentIdx, 1);
-      APP.currentIdx = -1;
-      saveState();
-    }
-    return;
+  // Удаляем текущий трек
+  if (APP.currentIdx >= 0 && APP.queue.length > 0) {
+    APP.queue.splice(0, APP.currentIdx + 1);
+    APP.currentIdx = -1;
   }
-  // Показываем заставку со следующим треком (текущий трек ЕЩЁ в очереди)
-  const track = APP.queue[next];
+  if (APP.queue.length === 0) {
+    saveState(); setOverlay('qr'); updateBarUI(); return;
+  }
+  // Следующий трек — первый в очереди
+  const track = APP.queue[0];
   const guestLabel = track.guestName || (track.guestId === 'admin' ? 'бар' : ('#' + (track.guestId || '?').slice(-6).toUpperCase()));
   document.getElementById('overlay-title').textContent = track.title;
   document.getElementById('overlay-guest').textContent = '🎤 ' + guestLabel;
@@ -1989,23 +1950,20 @@ dbRef.on('value', (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
 
-  const prevIdx = APP.currentIdx;
   const prevLen = APP.queue.length;
 
-  const incomingQueue = (data.queue || []).map(item => ({
+  // Обновляем очередь из Firebase для всех ролей
+  APP.queue = (data.queue || []).map(item => ({
     ...item,
     guestId: item.guestId || 'unknown',
   }));
 
+  // currentIdx — только если бар не запущен
   if (!APP.barStarted) {
-    // Бар не запущен — берём всё из Firebase как есть
-    APP.queue = incomingQueue;
     APP.currentIdx = data.currentIdx ?? -1;
   }
-  // Бар запущен — APP.queue живёт локально, не трогаем
-  // Новые треки приходят через отдельный listener на karaoke/addedAt
 
-  // Обновляем UI в зависимости от роли
+  // UI
   if (document.getElementById('client-screen').classList.contains('active')) {
     renderClientQueue();
   }
@@ -2018,8 +1976,16 @@ dbRef.on('value', (snapshot) => {
   if (document.getElementById('bar-screen').classList.contains('active')) {
     updateBarUI();
 
-    // Бар не реагирует на изменения очереди из Firebase
-    // Новые треки приходят через karaoke/pending listener в showBar()
+    if (APP.playerReady && APP.barStarted) {
+      const isPlaying = ytPlayer && ytPlayer.getPlayerState &&
+        (ytPlayer.getPlayerState() === 1 || ytPlayer.getPlayerState() === 3);
+
+      // Запускаем только если ничего не играет и currentIdx = -1
+      // (бар на QR-экране, пришли новые треки)
+      if (!isPlaying && APP.queue.length > 0 && APP.currentIdx === -1) {
+        barCheckAndPlay();
+      }
+    }
   }
 
   // Команды от админа
