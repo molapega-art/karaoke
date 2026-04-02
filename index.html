@@ -1484,6 +1484,8 @@ function adminPlayNext(i) {
 function adminSkip() {
   APP.lastCmd = 'skip:' + Date.now();
   saveState();
+  // Сразу сбрасываем чтобы следующий saveState не отправил команду повторно
+  setTimeout(() => { APP.lastCmd = ''; saveState(); }, 500);
   renderAdminQueue();
 }
 
@@ -1494,6 +1496,7 @@ function adminClearAll() {
   APP.trackEndedLock = false;
   saveState();
   APP.lastCmd = 'clear:' + Date.now(); saveState();
+  setTimeout(() => { APP.lastCmd = ''; saveState(); }, 500);
 
   renderAdminQueue();
 }
