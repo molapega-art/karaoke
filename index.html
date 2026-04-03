@@ -1507,6 +1507,7 @@ function onTrackEnded() {
   document.getElementById('overlay-guest').textContent = '🎤 ' + guestLabel;
   document.getElementById('overlay-thumb').src = track.thumb;
   setOverlay('track');
+  announceGuest(guestLabel);
   let t = 10;
   document.getElementById('overlay-countdown').textContent = t;
   APP.inCountdown = true;
@@ -1769,6 +1770,36 @@ function resetGuests() {
   db.ref('karaoke_guests').remove();
   ALL_GUESTS = {};
   renderGuestsList();
+}
+
+// ═══════════════════════════════════════════
+// ГОЛОСОВОЕ ОБЪЯВЛЕНИЕ
+// ═══════════════════════════════════════════
+function announceGuest(guestName) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+
+  const phrases = [
+    `На сцену приглашается ${guestName}!`,
+    `Встречайте! ${guestName}!`,
+    `А сейчас для вас поёт ${guestName}!`,
+    `Аплодисменты! На сцене ${guestName}!`,
+    `Следующий ис��олнитель — ${guestName}!`,
+  ];
+  const text = phrases[Math.floor(Math.random() * phrases.length)];
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'ru-RU';
+  utter.rate = 0.95;
+  utter.pitch = 1.1;
+  utter.volume = 1;
+
+  // Выбираем русский голос если доступен
+  const voices = speechSynthesis.getVoices();
+  const ruVoice = voices.find(v => v.lang.startsWith('ru'));
+  if (ruVoice) utter.voice = ruVoice;
+
+  speechSynthesis.speak(utter);
 }
 
 // ═══════════════════════════════════════════
