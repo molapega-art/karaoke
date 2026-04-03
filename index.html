@@ -1070,14 +1070,14 @@ function renderAdminQueue() {
     return `<div
       class="queue-item ${isNow ? 'now-playing' : ''}"
       id="adm-item-${i}"
-      draggable="true"
-      ondragstart="onDragStart(event,${i})"
+      ${!isNow ? 'draggable="true"' : ''}
+      ${!isNow ? `ondragstart="onDragStart(event,${i})"` : ''}
       ondragover="onDragOver(event,${i})"
       ondragleave="onDragLeave(event,${i})"
       ondrop="onDrop(event,${i})"
       ondragend="onDragEnd()"
     >
-      <span class="drag-handle" title="Перетащить">⠿</span>
+      ${!isNow ? `<span class="drag-handle" title="Перетащить">⠿</span>` : ''}
       ${isNow ? `<div class="pulse-dot"></div>` : `<span class="queue-num">${i + 1}</span>`}
       <img class="queue-thumb" src="${item.thumb}" onerror="this.style.display='none'">
       <div class="queue-info">
@@ -1108,6 +1108,7 @@ function onDragLeave(e, i) {
 function onDrop(e, targetIdx) {
   e.preventDefault();
   if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+  if (dragSrcIdx === APP.currentIdx || targetIdx === APP.currentIdx) return;
 
   const moved = APP.queue.splice(dragSrcIdx, 1)[0];
   APP.queue.splice(targetIdx, 0, moved);
