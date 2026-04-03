@@ -1085,6 +1085,8 @@ function renderAdminQueue() {
         <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.6;color:var(--amber)">· ${item.guestName || (item.guestId === 'admin' ? 'бар' : '#' + (item.guestId ? item.guestId.slice(-6).toUpperCase() : '?'))}</span></div>
       </div>
       <div class="queue-actions">
+        ${i > 0 ? `<button class="icon-btn move" title="Вверх" onclick="adminMove(${i},-1)">▲</button>` : ''}
+        ${i < APP.queue.length - 1 ? `<button class="icon-btn move" title="Вниз" onclick="adminMove(${i},1)">▼</button>` : ''}
         <button class="icon-btn del" title="Удалить" onclick="adminDelete(${i})">✕</button>
       </div>
     </div>`;
@@ -1143,13 +1145,20 @@ function adminDelete(i) {
   renderAdminQueue();
 }
 
-// Поставить следующей (сдвинуть на позицию currentIdx+1)
-function adminPlayNext(i) {
-  const target = APP.currentIdx + 1;
-  if (i === target) return;
+// Переместить трек вверх/вниз (dir: -1 вверх, +1 вниз)
+function adminMove(i, dir) {
+  const target = i + dir;
+  if (target < 0 || target >= APP.queue.length) return;
   const moved = APP.queue.splice(i, 1)[0];
-  const insertAt = i < target ? target - 1 : target;
-  APP.queue.splice(insertAt, 0, moved);
+  APP.queue.splice(target, 0, moved);
+  // Корректируем currentIdx
+  if (APP.currentIdx === i) {
+    APP.currentIdx = target;
+  } else if (i < APP.currentIdx && target >= APP.currentIdx) {
+    APP.currentIdx--;
+  } else if (i > APP.currentIdx && target <= APP.currentIdx) {
+    APP.currentIdx++;
+  }
   saveState();
   renderAdminQueue();
 }
@@ -1788,7 +1797,7 @@ window.showManualInput   = showManualInput;
 window.addManualUrl      = addManualUrl;
 window.guestDelete       = guestDelete;
 window.adminDelete       = adminDelete;
-window.adminPlayNext     = adminPlayNext;
+window.adminMove         = adminMove;
 window.adminSkip         = adminSkip;
 window.adminClearAll     = adminClearAll;
 window.skipTrack         = skipTrack;
