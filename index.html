@@ -1087,7 +1087,7 @@ function renderAdminQueue() {
       <div class="queue-actions">
         ${i > 0 && !isNow && i - 1 !== APP.currentIdx ? `<button class="icon-btn move" title="Вверх" onclick="adminMove(${i},-1)">▲</button>` : ''}
         ${i < APP.queue.length - 1 && !isNow && i + 1 !== APP.currentIdx ? `<button class="icon-btn move" title="Вниз" onclick="adminMove(${i},1)">▼</button>` : ''}
-        <button class="icon-btn del" title="Удалить" onclick="adminDelete(${i})">✕</button>
+        ${!isNow ? `<button class="icon-btn del" title="Удалить" onclick="adminDelete(${i})">✕</button>` : ''}
       </div>
     </div>`;
   }).join('');
