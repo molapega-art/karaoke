@@ -1085,7 +1085,6 @@ function renderAdminQueue() {
         <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.6;color:var(--amber)">· ${item.guestName || (item.guestId === 'admin' ? 'бар' : '#' + (item.guestId ? item.guestId.slice(-6).toUpperCase() : '?'))}</span></div>
       </div>
       <div class="queue-actions">
-        ${!isNow ? `<button class="icon-btn skip" title="Сыграть следующей" onclick="adminPlayNext(${i})">▶</button>` : ''}
         <button class="icon-btn del" title="Удалить" onclick="adminDelete(${i})">✕</button>
       </div>
     </div>`;
