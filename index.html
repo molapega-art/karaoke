@@ -1085,8 +1085,8 @@ function renderAdminQueue() {
         <div class="queue-channel">${esc(item.channel)} <span style="font-size:10px;opacity:0.6;color:var(--amber)">· ${item.guestName || (item.guestId === 'admin' ? 'бар' : '#' + (item.guestId ? item.guestId.slice(-6).toUpperCase() : '?'))}</span></div>
       </div>
       <div class="queue-actions">
-        ${i > 0 ? `<button class="icon-btn move" title="Вверх" onclick="adminMove(${i},-1)">▲</button>` : ''}
-        ${i < APP.queue.length - 1 ? `<button class="icon-btn move" title="Вниз" onclick="adminMove(${i},1)">▼</button>` : ''}
+        ${i > 0 && !isNow ? `<button class="icon-btn move" title="Вверх" onclick="adminMove(${i},-1)">▲</button>` : ''}
+        ${i < APP.queue.length - 1 && !isNow ? `<button class="icon-btn move" title="Вниз" onclick="adminMove(${i},1)">▼</button>` : ''}
         <button class="icon-btn del" title="Удалить" onclick="adminDelete(${i})">✕</button>
       </div>
     </div>`;
