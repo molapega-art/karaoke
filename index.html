@@ -1459,6 +1459,7 @@ function barCheckAndPlay() {
   setOverlay('none');
   ytPlayer.loadVideoById(APP.queue[APP.currentIdx].id);
   updateBarUI();
+  saveState();
   startPlaybackTimeout();
 }
 
