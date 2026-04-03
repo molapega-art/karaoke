@@ -679,6 +679,40 @@
       <div class="qr-box" id="qr-box"></div>
       <div class="qr-hint">Наведите камеру телефона</div>
     </div>
+
+    <div id="embed-blocked" style="
+      position:absolute;inset:0;
+      display:none;flex-direction:column;
+      align-items:center;justify-content:center;
+      gap:24px;z-index:15;
+      background:radial-gradient(ellipse at center, rgba(255,58,140,0.12) 0%, #000 70%);
+      padding:40px;text-align:center;
+    ">
+      <div style="font-size:48px;">🚫</div>
+      <div id="eb-title" style="
+        font-family:'Unbounded',sans-serif;
+        font-size:clamp(14px,2.5vw,24px);
+        font-weight:700;color:var(--text);
+        max-width:80%;
+      ">—</div>
+      <div style="font-size:14px;color:var(--muted);max-width:500px;line-height:1.6;">
+        Это видео нельзя встроить. Откройте на YouTube или пропустите.
+      </div>
+      <div style="display:flex;gap:12px;">
+        <button id="eb-btn" style="
+          background:linear-gradient(135deg,var(--neon),var(--neon2));
+          border:none;border-radius:12px;padding:14px 28px;
+          color:white;font-family:'Unbounded',sans-serif;
+          font-size:13px;font-weight:700;cursor:pointer;
+        ">▶ Открыть на YouTube</button>
+        <button onclick="playNext()" style="
+          background:var(--card);border:1px solid var(--border);
+          border-radius:12px;padding:14px 28px;
+          color:var(--text);font-family:'Onest',sans-serif;
+          font-size:13px;cursor:pointer;
+        ">Пропустить →</button>
+      </div>
+    </div>
   </div>
 
 
@@ -1005,6 +1039,7 @@ function guestDelete(i) {
   if (APP.queue[i]?.guestId !== GUEST_ID) return;
   if (i === APP.currentIdx) return; // нельзя удалить играющую
   APP.queue.splice(i, 1);
+  if (i < APP.currentIdx) APP.currentIdx--;
   if (APP.currentIdx >= APP.queue.length) APP.currentIdx = APP.queue.length - 1;
   if (APP.queue.length === 0) APP.currentIdx = -1;
   saveState();
@@ -1319,31 +1354,6 @@ function loadYTAPI() {
     return;
   }
   window.onYouTubeIframeAPIReady = onYTReady;
-window.submitGuestName  = submitGuestName;
-window.switchAdminTab   = switchAdminTab;
-window.blockGuest       = blockGuest;
-window.unblockGuest     = unblockGuest;
-window.doSearch         = doSearch;
-window.selectResult     = selectResult;
-window.addToQueue       = addToQueue;
-window.showManualInput  = showManualInput;
-window.addManualUrl     = addManualUrl;
-window.guestDelete      = guestDelete;
-window.adminDelete      = adminDelete;
-window.adminPlayNext    = adminPlayNext;
-window.adminSkip        = adminSkip;
-window.adminClearAll    = adminClearAll;
-window.skipTrack        = skipTrack;
-window.clearQueue       = clearQueue;
-window.requestFullscreen= requestFullscreen;
-window.onDragStart      = onDragStart;
-window.onDragOver       = onDragOver;
-window.onDragLeave      = onDragLeave;
-window.onDrop           = onDrop;
-window.onDragEnd        = onDragEnd;
-window.hideEmbedBlocked = hideEmbedBlocked;
-window.resetGuests       = resetGuests;
-window.startBar         = startBar;
   const s = document.createElement('script');
   s.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(s);
@@ -1391,13 +1401,12 @@ function onYTReady() {
 function setOverlay(mode) {
   const qr      = document.getElementById('qr-overlay');
   const track   = document.getElementById('track-overlay');
-  qr.style.display    = mode === 'qr'    ? 'flex' : 'none';
-  track.style.display = mode === 'track' ? 'flex' : 'none';
-  // убираем классы чтобы не конфликтовали
+  const embed   = document.getElementById('embed-blocked');
   qr.classList.remove('visible');
   track.classList.remove('visible');
-  if (mode === 'qr')    qr.style.display    = 'flex';
-  if (mode === 'track') track.style.display = 'flex';
+  qr.style.display    = mode === 'qr'    ? 'flex' : 'none';
+  track.style.display = mode === 'track' ? 'flex' : 'none';
+  if (embed) embed.style.display = 'none';
 }
 
 // Проверяем состояние и запускаем нужное видео
@@ -1507,7 +1516,7 @@ function stopCountdown() {
   APP.inCountdown = false;
 }
 
-function skipTrack() { stopCountdown(); setOverlay('none'); onTrackEnded(); }
+function skipTrack() { stopCountdown(); setOverlay('none'); APP.trackEndedLock = false; onTrackEnded(); }
 
 function clearQueue() {
   if (!confirm('Очистить всю очередь?')) return;
@@ -1618,7 +1627,7 @@ dbRef.on('value', (snapshot) => {
 
   // Команды от админа
   const cmd = (data.cmd || '').split(':')[0];
-  if (cmd && cmd !== lastCmdSeen) {
+  if (cmd && data.cmd !== lastCmdSeen) {
     lastCmdSeen = data.cmd;
     if (document.getElementById('bar-screen').classList.contains('active') && APP.barStarted) {
       if (cmd === 'skip') {
@@ -1767,6 +1776,34 @@ function truncate(s, n) {
 
 // ═══════════════════════════════════════════
 
+
+// GLOBAL BINDINGS
+window.submitGuestName   = submitGuestName;
+window.switchAdminTab    = switchAdminTab;
+window.blockGuest        = blockGuest;
+window.unblockGuest      = unblockGuest;
+window.doSearch          = doSearch;
+window.selectResult      = selectResult;
+window.addToQueue        = addToQueue;
+window.showManualInput   = showManualInput;
+window.addManualUrl      = addManualUrl;
+window.guestDelete       = guestDelete;
+window.adminDelete       = adminDelete;
+window.adminPlayNext     = adminPlayNext;
+window.adminSkip         = adminSkip;
+window.adminClearAll     = adminClearAll;
+window.skipTrack         = skipTrack;
+window.clearQueue        = clearQueue;
+window.requestFullscreen = requestFullscreen;
+window.onDragStart       = onDragStart;
+window.onDragOver        = onDragOver;
+window.onDragLeave       = onDragLeave;
+window.onDrop            = onDrop;
+window.onDragEnd         = onDragEnd;
+window.hideEmbedBlocked  = hideEmbedBlocked;
+window.resetGuests       = resetGuests;
+window.startBar          = startBar;
+window.playNext          = playNext;
 
 boot();
 
